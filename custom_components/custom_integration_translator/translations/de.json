@@ -1,0 +1,86 @@
+{
+  "title": "Custom Integration Translator",
+  "config": {
+    "step": {
+      "user": {
+        "title": "DeepL-Konto auswählen",
+        "description": "Über dieses eingerichtete Konto werden die ausgewählten Phrasen übersetzt.",
+        "data": {
+          "deepl_entry": "DeepL-Konto"
+        }
+      }
+    },
+    "abort": {
+      "deepl_required": "Richte zuerst [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) ein und starte die Einrichtung erneut.",
+      "already_configured": "Der Translator ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Übersetzungen verwalten",
+        "menu_options": {
+          "preferences": "Sprache und Sidebar",
+          "deactivate": "Translator deaktivieren …"
+        }
+      },
+      "preferences": {
+        "title": "Sprache und Sidebar",
+        "description": "„system“ folgt der in Home Assistant eingestellten Sprache.",
+        "data": {
+          "language": "Voreingestellte Zielsprache",
+          "sidebar": "Übersetzungen in der Sidebar anzeigen",
+          "protected_words": "Geschützte Wörter, eines pro Zeile"
+        }
+      },
+      "deactivate": {
+        "title": "Translator deaktivieren?",
+        "description": "Standardmäßig bleiben alle Übersetzungen bestehen. Wähle die Option, um vorher Originale wiederherzustellen und ausschließlich vom Translator angelegte Dateien zu entfernen. {detail}",
+        "data": {
+          "undo": "Übersetzungen vor der Deaktivierung rückgängig machen"
+        }
+      }
+    },
+    "abort": {
+      "deactivated": "Der Translator wird deaktiviert.",
+      "provider_unavailable": "Das konfigurierte DeepL-Konto ist nicht erreichbar."
+    },
+    "error": {
+      "restore_failed": "Die Bereinigung wurde angehalten. Prüfe die betroffene Datei in der Übersetzungsansicht."
+    }
+  },
+  "entity": {
+    "button": {
+      "open_workspace": {
+        "name": "Übersetzungen öffnen"
+      }
+    }
+  },
+  "services": {
+    "open_workspace": {
+      "name": "Übersetzungen öffnen",
+      "description": "Öffnet die Übersetzungsansicht im sichtbaren Browser des aufrufenden Administrators. Automationen ohne Benutzerkontext erzeugen eine Benachrichtigung mit Link."
+    }
+  },
+  "issues": {
+    "missing": {
+      "title": "{name} · {count} fehlende Phrasen ({language})",
+      "description": "Die vorhandene Übersetzung enthält noch nicht alle Quelltexte. [Phrasen prüfen und ergänzen]({url})"
+    },
+    "retained": {
+      "title": "Gespeicherte Übersetzungen prüfen",
+      "description": "Der Translator wurde deaktiviert oder entfernt. {count} verwaltete Sprachdateien wurden beibehalten. Hier kannst du diese Entscheidung bestätigen oder die Änderungen rückgängig machen.",
+      "fix_flow": {
+        "step": {
+          "review": {
+            "title": "Übersetzungen behalten?",
+            "description": "Lass das Kästchen leer, um die Dateien zu behalten. Beim Rückgängigmachen werden Originale wiederhergestellt und rein erzeugte Dateien entfernt. {detail}",
+            "data": {
+              "undo": "Alle verwalteten Änderungen rückgängig machen"
+            }
+          }
+        }
+      }
+    }
+  }
+}

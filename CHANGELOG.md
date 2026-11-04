@@ -1,9 +1,7 @@
 # Changelog
 
-## Unreleased
+## 2026.11.05.1
 
-- Requires Home Assistant 2024.4 or newer (`ConfigFlowResult`); real Home Assistant tests and a Compatibility workflow check every release from there.
-
-## 0.1.0
-
-- ✨ Initial version created from the integration template.
+- Initial Custom Integration Translator release with DeepL account selection, a popup and an optional sidebar workspace.
+- Review source and target phrases, fill missing keys, protect names and placeholders, or retranslate selected text.
+- Discover missing translations, create Repairs issues and recover exact developer originals after repeated edits.

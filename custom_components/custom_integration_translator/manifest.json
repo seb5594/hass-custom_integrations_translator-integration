@@ -1,0 +1,22 @@
+{
+  "domain": "custom_integration_translator",
+  "name": "Custom Integration Translator",
+  "after_dependencies": [
+    "deepl_translator"
+  ],
+  "codeowners": [
+    "@seb5594"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "panel_custom",
+    "persistent_notification"
+  ],
+  "documentation": "https://github.com/seb5594/hass-custom_integrations_translator-integration",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/seb5594/hass-custom_integrations_translator-integration/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "2026.11.05.1"
+}
