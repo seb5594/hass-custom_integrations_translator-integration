@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Custom Integration Translator</title>
+  <path fill="#006D83" d="M20 35h143a16 16 0 0 1 16 16v88a16 16 0 0 1-16 16H82l-44 34v-34H20a16 16 0 0 1-16-16V51a16 16 0 0 1 16-16Z"/>
+  <g fill="none" stroke="#FFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M87 56l7 10m-43 9h85m-20 0c-11 28-32 46-61 58m17-47c11 21 30 35 54 44"/>
+  </g>
+  <path fill="#42C9E9" d="M126 112h110a16 16 0 0 1 16 16v71a16 16 0 0 1-16 16h-11v24l-35-24h-64a16 16 0 0 1-16-16v-71a16 16 0 0 1 16-16Z"/>
+  <path fill="none" stroke="#06364A" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" d="m153 192 25-59h6l25 59m-46-18h36"/>
+</svg>
