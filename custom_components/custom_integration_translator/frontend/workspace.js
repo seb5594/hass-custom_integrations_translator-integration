@@ -1,5 +1,6 @@
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char =>
   ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
+const PAGE_SIZE = 100;
 
 class TranslatorWorkspace extends HTMLElement {
   constructor() {
@@ -9,11 +10,18 @@ class TranslatorWorkspace extends HTMLElement {
     this.items = [];
     this.terms = "";
     this.selected = new Set();
+    this.search = "";
+    this.page = 0;
     this.root = this.shadowRoot;
     this.root.addEventListener("click", e => this.click(e));
     this.root.addEventListener("change", e => this.change(e));
     this.root.addEventListener("input", e => {
       if (e.target.id === "terms") this.terms = e.target.value;
+      if (e.target.id === "search") {
+        this.search = e.target.value;
+        this.page = 0;
+        this.updateRows();
+      }
     });
   }
 
@@ -65,11 +73,19 @@ class TranslatorWorkspace extends HTMLElement {
   }
   async detail(domain) {
     this.item = await this.call("detail", {language:this.lang, domain});
+    this.search = "";
+    this.page = 0;
     this.select("missing");
   }
+  matchingRows() {
+    const query = this.search.trim().toLocaleLowerCase();
+    return this.item.rows.flatMap((row, index) => !query ||
+      [row.source, row.target, row.path.join(" › ")].some(value =>
+        String(value ?? "").toLocaleLowerCase().includes(query)) ? [index] : []);
+  }
   select(mode) {
-    this.selected = new Set(this.item.rows.flatMap((r, index) =>
-      mode === "all" || (mode === "missing" && r.target === null) ? [index] : []));
+    this.selected = new Set(this.matchingRows().filter(index =>
+      mode === "all" || (mode === "missing" && this.item.rows[index].target === null)));
   }
   change({target}) {
     if (target.id === "language") {
@@ -90,6 +106,9 @@ class TranslatorWorkspace extends HTMLElement {
     submit.disabled = this.busy || !this.selected.size || this.item.conflict ||
       !this.settings.languages.includes(this.lang);
     submit.textContent = this.t("Auswahl übersetzen", "Translate selection") + ` (${this.selected.size})`;
+    this.root.querySelector("#selection-status").textContent = this.t(
+      `${this.selected.size} Phrasen ausgewählt – auch außerhalb dieser Ansicht.`,
+      `${this.selected.size} phrases selected, including phrases outside this view.`);
   }
   click(event) {
     const button = event.target.closest("button");
@@ -100,7 +119,19 @@ class TranslatorWorkspace extends HTMLElement {
     if (id === "retry") { this.started = false; return this.start(); }
     if (id === "back") return this.run(() => this.list());
     if (button.dataset.domain) return this.run(() => this.detail(button.dataset.domain));
-    if (button.dataset.select) { this.select(button.dataset.select); this.render(); return; }
+    if (button.dataset.select) {
+      this.select(button.dataset.select);
+      for (const checkbox of this.root.querySelectorAll("[data-row]")) {
+        checkbox.checked = this.selected.has(Number(checkbox.dataset.row));
+      }
+      this.updateSubmit();
+      return;
+    }
+    if (button.dataset.page) {
+      this.page += Number(button.dataset.page);
+      this.updateRows();
+      return;
+    }
     if (!this.item) return;
     const data = {domain:this.item.domain, language:this.lang};
     if (id === "translate") {
@@ -155,10 +186,16 @@ class TranslatorWorkspace extends HTMLElement {
       <div class="tools"><button data-select="missing">${t("Nur fehlende","Missing only")}</button>
       <button data-select="all">${t("Alle auswählen","Select all")}</button>
       <button data-select="none">${t("Auswahl aufheben","Clear selection")}</button></div>
-      ${item.rows.map((r,index) => `<label class="phrase"><input type="checkbox" data-row="${index}" ${this.selected.has(index)?"checked":""}>
-        <span><small>${escapeHtml(item.source_language)} · ${escapeHtml(r.path.join(" › "))}</small>${escapeHtml(r.source)}</span>
-        <span><small>${escapeHtml(this.lang)} · ${r.target === null ? t("fehlt","missing") : r.generated ? "DeepL" : t("Vorhandene Fassung","Existing translation")}</small>${r.target === null ? "—" : escapeHtml(r.target)}</span></label>`).join("") ||
-          `<p>${t("Keine Phrasen in einer anderen Quelldatei gefunden.","No phrases found in a separate source file.")}</p>`}
+      <label class="search">${t("Phrasen suchen","Search phrases")}
+        <input id="search" type="search" value="${escapeHtml(this.search)}" placeholder="${t("Quelltext, Übersetzung oder Schlüssel","Source, translation or key")}"></label>
+      <p>${t("Suchen und Blättern behalten die Auswahl bei. Die Auswahlknöpfe ersetzen sie mit Treffern aller Seiten; „Auswahl aufheben“ leert alles.",
+        "Searching and changing pages preserve your selection. Selection buttons replace it with matching results across all pages; Clear selection clears everything.")}</p>
+      <p id="selection-status" role="status" aria-live="polite"></p>
+      <nav class="tools" aria-label="${t("Phrasenseiten","Phrase pages")}">
+        <button data-page="-1">${t("Zurück","Previous")}</button>
+        <span id="page-status" role="status" aria-live="polite"></span>
+        <button data-page="1">${t("Weiter","Next")}</button></nav>
+      <div id="phrases"></div>
       <label class="terms">${t("Geschützte Wörter, eines pro Zeile","Protected words, one per line")}
         <textarea id="terms" rows="3" placeholder="Home Assistant&#10;DeepL">${escapeHtml(this.terms)}</textarea></label>
       <p>${t("Schreibweise beachten. Nur die ausgewählten Quelltexte werden an DeepL übergeben.",
@@ -166,6 +203,35 @@ class TranslatorWorkspace extends HTMLElement {
       <button class="primary" id="translate"></button>
       ${item.managed ? `<hr><button id="restore" ${item.conflict && !item.original?"disabled":""}>${item.original ? t("Original wiederherstellen","Restore original") : t("Erzeugte Datei löschen","Delete generated file")}</button>` : ""}
       ${item.initial_available ? `<button id="download">${t("Erste Entwicklerfassung herunterladen","Download initial developer version")}</button>` : ""}`;
+  }
+  updateRows() {
+    const container = this.root.querySelector("#phrases");
+    if (!container || !this.item) return;
+    const t = this.t.bind(this), item = this.item, matches = this.matchingRows();
+    const pages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+    this.page = Math.max(0, Math.min(this.page, pages - 1));
+    const start = this.page * PAGE_SIZE;
+    const visible = matches.slice(start, start + PAGE_SIZE);
+    container.innerHTML = visible.map(index => {
+      const r = item.rows[index];
+      return `<label class="phrase"><input type="checkbox" data-row="${index}" ${this.selected.has(index)?"checked":""}>
+        <span><small>${escapeHtml(item.source_language)} · ${escapeHtml(r.path.join(" › "))}</small>${escapeHtml(r.source)}</span>
+        <span><small>${escapeHtml(this.lang)} · ${r.target === null ? t("fehlt","missing") : r.generated ? "DeepL" : t("Vorhandene Fassung","Existing translation")}</small>${r.target === null ? "—" : escapeHtml(r.target)}</span></label>`;
+    }).join("") || `<p>${item.rows.length ? t("Keine passenden Phrasen.","No matching phrases.") :
+      t("Keine Phrasen in einer anderen Quelldatei gefunden.","No phrases found in a separate source file.")}</p>`;
+    this.root.querySelector("[data-page='-1']").disabled = this.page === 0;
+    this.root.querySelector("[data-page='1']").disabled = this.page === pages - 1;
+    for (const direction of [-1, 1]) {
+      this.root.querySelector(`[data-page='${direction}']`).hidden = pages === 1;
+    }
+    this.root.querySelector("#page-status").textContent = t(
+      `${matches.length ? start + 1 : 0}–${start + visible.length} von ${matches.length} · Seite ${this.page + 1}/${pages}`,
+      `${matches.length ? start + 1 : 0}–${start + visible.length} of ${matches.length} · Page ${this.page + 1}/${pages}`);
+    this.root.querySelector("[data-select='all']").textContent = this.search.trim()
+      ? t("Alle Suchtreffer auswählen","Select all results") : t("Alle auswählen","Select all");
+    this.root.querySelector("[data-select='missing']").textContent = this.search.trim()
+      ? t("Nur fehlende Suchtreffer","Missing results only") : t("Nur fehlende","Missing only");
+    this.updateSubmit();
   }
   render() {
     const t = this.t.bind(this);
@@ -185,7 +251,7 @@ class TranslatorWorkspace extends HTMLElement {
           this.item ? this.editor() : this.listView()}` : ""}</fieldset></main>
       <footer><a href="https://github.com/seb5594" target="_blank" rel="noopener noreferrer">More Developer's Home Assistant Content</a>
       <a href="https://paypal.me/seb5594" target="_blank" rel="noopener noreferrer">Support work</a><p>Made with 💖 in 🇩🇪</p></footer></article>`;
-    this.updateSubmit();
+    this.updateRows();
   }
 }
 if (!customElements.get("cit-workspace")) customElements.define("cit-workspace", TranslatorWorkspace);
