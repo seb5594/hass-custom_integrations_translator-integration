@@ -4,21 +4,21 @@ from pathlib import Path
 
 from homeassistant.components import (
     frontend,
-    panel_custom,
     persistent_notification,
     websocket_api,
 )
-from homeassistant.components.http import StaticPathConfig
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import service
 
 from .api import workspace
+from .compat import register_assets, register_panel, remove_launcher
 from .const import ASSETS, DOMAIN, NAME, PANEL
 from .runtime import Runtime
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-LAUNCHER = f"{ASSETS}/launcher.js?v=2026.11.05.3"
+LAUNCHER = f"{ASSETS}/launcher.js?v=2026.11.05.4"
 
 
 @callback
@@ -39,9 +39,7 @@ def open_workspace(hass, context):
 
 
 async def async_setup(hass, config):
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(ASSETS, str(Path(__file__).parent / "frontend"), False)]
-    )
+    await register_assets(hass, ASSETS, str(Path(__file__).parent / "frontend"))
     websocket_api.async_register_command(hass, workspace)
     return True
 
@@ -49,21 +47,22 @@ async def async_setup(hass, config):
 async def async_setup_entry(hass, entry):
     runtime = Runtime(hass, entry)
     hass.data[DOMAIN] = runtime
-    entry.runtime_data = runtime
+    if hasattr(ConfigEntry, "runtime_data"):
+        entry.runtime_data = runtime
 
     async def handle_open(call):
         open_workspace(hass, call.context)
 
     service.async_register_admin_service(hass, DOMAIN, "open_workspace", handle_open)
-    await panel_custom.async_register_panel(
+    await register_panel(
         hass,
+        DOMAIN,
         PANEL,
         "cit-workspace",
         sidebar_title=NAME if entry.options.get("sidebar") else None,
         sidebar_icon="mdi:translate",
-        module_url=f"{ASSETS}/workspace.js?v=2026.11.05.3",
+        module_url=f"{ASSETS}/workspace.js?v=2026.11.05.4",
         require_admin=True,
-        config_panel_domain=DOMAIN,
     )
     frontend.add_extra_js_url(hass, LAUNCHER)
     await hass.config_entries.async_forward_entry_setups(entry, ["button"])
@@ -77,14 +76,14 @@ async def reload_entry(hass, entry):
 
 
 async def async_unload_entry(hass, entry):
-    runtime = entry.runtime_data
+    runtime = hass.data[DOMAIN]
     runtime.active = False
     if not await hass.config_entries.async_unload_platforms(entry, ["button"]):
         runtime.active = True
         return False
     async with runtime.lock:
         runtime.cleanup()
-    frontend.remove_extra_js_url(hass, LAUNCHER)
+    remove_launcher(hass, LAUNCHER)
     frontend.async_remove_panel(hass, PANEL)
     hass.services.async_remove(DOMAIN, "open_workspace")
     hass.data.pop(DOMAIN, None)

@@ -1,6 +1,6 @@
 {
   "name": "Custom Integration Translator",
-  "homeassistant": "2026.11.0",
+  "homeassistant": "2023.7.0",
   "render_readme": true,
   "zip_release": true,
   "filename": "custom_integration_translator.zip"

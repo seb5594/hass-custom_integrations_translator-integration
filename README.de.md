@@ -6,9 +6,9 @@ Ergänze die Übersetzungen deiner HACS-Integrationen direkt in Home Assistant. 
 
 ## Einrichten
 
-1. Verwende Home Assistant ab Version 2026.11.0. Installiere zuerst [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) und richte dort dein DeepL-Konto ein.
+1. Verwende Home Assistant ab Version 2023.7.0. Installiere zuerst [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) und richte dort dein DeepL-Konto ein.
 2. Für die manuelle Installation kopiere den Ordner `custom_components/custom_integration_translator` in den gleichnamigen Pfad unter deinem Home-Assistant-Konfigurationsordner. Starte Home Assistant neu. Für ein veröffentlichtes Release kannst du dieses Repository auch in HACS als benutzerdefiniertes Repository der Kategorie **Integration** hinzufügen.
-3. Mit eingerichtetem **DeepL Translator ab 1.0.0b3** erscheint nach der HACS-/Marketplace-Installation oder einem Neustart unter **Einstellungen → Geräte & Dienste** eine **Entdeckt**-Kachel. Bestätige die Einrichtung und wähle dein DeepL-Konto. Alternativ öffne **Integration hinzufügen → Custom Integration Translator**. Du kannst den Vorschlag mit Home Assistants **Ignorieren** dauerhaft ausblenden. Mit älteren DeepL-Versionen ist die manuelle Einrichtung weiterhin möglich. Die Kachel erscheint in der Integrationsübersicht; das zugehörige Gerät wird erst nach der Einrichtung angelegt.
+3. Mit eingerichtetem **DeepL Translator ab 1.0.0b4** erscheint nach der HACS-/Marketplace-Installation oder einem Neustart unter **Einstellungen → Geräte & Dienste** eine **Entdeckt**-Kachel. Bestätige die Einrichtung und wähle dein DeepL-Konto. Alternativ öffne **Integration hinzufügen → Custom Integration Translator**. Du kannst den Vorschlag mit Home Assistants **Ignorieren** dauerhaft ausblenden. Mit älteren DeepL-Versionen ist die manuelle Einrichtung weiterhin möglich. Die Kachel erscheint in der Integrationsübersicht; das zugehörige Gerät wird erst nach der Einrichtung angelegt.
 4. Drücke als Administrator auf dem zugehörigen Gerät **Übersetzungen öffnen**. Alternativ verwende die Aktion `custom_integration_translator.open_workspace` oder öffne in deiner Instanz `/custom-integration-translator`. Aufrufe aus Automationen ohne Benutzerkontext erzeugen eine Benachrichtigung mit Link. Nach der ersten Einrichtung hilft bei einem bereits geöffneten Browser ein Neuladen.
 
 ## Eine Übersetzung ergänzen
@@ -27,9 +27,12 @@ Die Ansicht wählt die Systemsprache vor. Angeboten werden Sprachschlüssel, die
 
 Nach Installationen, Updates und Deinstallationen über HACS oder den Marketplace reagiert der Translator auf deren Dispatcher-Signale. Auch das Laden einer Custom Integration und eine Änderung der Systemsprache lösen eine Prüfung aus. Ereignisse innerhalb von zehn Sekunden werden gebündelt.
 
-Zusätzlich prüft der Translator beim Start und standardmäßig einmal pro Woche (168 Stunden) `custom_components`. Fehlt eine unterstützte Zielsprache, führt eine persistente Benachrichtigung unmittelbar zur passenden Phrasenliste. Existiert die Sprachdatei bereits, fehlen aber Schlüssel aus der Quellfassung, erscheint unter **Einstellungen → System → Reparaturen** ein Eintrag mit Anzahl und Link. Unter **Konfigurieren → Sprache und Sidebar → Zusätzlicher Kontrolllauf** sind 0 bis 168 Stunden einstellbar. 0 deaktiviert den periodischen Kontrolllauf. Bereits ausdrücklich gespeicherte Intervalle bleiben erhalten. Manuell kopierte Dateien werden spätestens beim nächsten Kontrolllauf oder Neustart erfasst.
+Zusätzlich prüft der Translator beim Start und standardmäßig einmal pro Woche (168 Stunden) `custom_components`. Fehlt eine unterstützte Zielsprache, führt eine persistente Benachrichtigung unmittelbar zur passenden Phrasenliste. Existiert die Sprachdatei bereits, fehlen aber Schlüssel aus der Quellfassung, erscheint unter **Einstellungen → System → Reparaturen** ein Eintrag mit Anzahl und Link. Unter **Konfigurieren → Automatische Prüfungen → Zusätzlicher Kontrolllauf** sind 0 bis 168 Stunden einstellbar. 0 deaktiviert den periodischen Kontrolllauf. Bereits ausdrücklich gespeicherte Intervalle bleiben erhalten. Manuell kopierte Dateien werden spätestens beim nächsten Kontrolllauf oder Neustart erfasst.
 
 Die Prüfung allein schreibt keine Sprachdateien und beauftragt keine Übersetzung.
+
+
+Unter **Konfigurieren → Automatische Prüfungen** schaltest du mit dem Hauptschalter sämtliche Hintergrundprüfungen aus oder steuerst Startprüfung, HACS, Marketplace, das Laden von Custom Integrations und Änderungen der Systemsprache einzeln. Das Intervall von 0 bis 168 Stunden steht auf derselben Seite. Unter **Konfigurieren → Hinweise** lassen sich Benachrichtigungen für fehlende Sprachdateien und Reparatureinträge für fehlende Phrasen getrennt abschalten. Beim Speichern verschwinden vorhandene Übersetzungshinweise der abgeschalteten Art; Wiederherstellungsdialoge bleiben verfügbar. Manuelle Auswahl, Übersetzung und Wiederherstellung funktionieren weiterhin. Die Schalter sind standardmäßig eingeschaltet und behalten andere Einstellungen bei. In DeepL Translator ab 1.0.0b4 steuert **Konfigurieren → Custom Integration Translator entdecken** den anfänglichen Einrichtungsvorschlag pro DeepL-Konto. Schalte die Funktion bei allen Konten aus, um Vorschläge vollständig zu unterbinden.
 
 ## Original wiederherstellen oder Änderungen behalten
 
@@ -39,8 +42,12 @@ Vor dem ersten Eingriff sichert der Translator den exakten Inhalt einer vorhande
 
 Unter **Konfigurieren → Translator deaktivieren** kannst du vor der Deaktivierung alle verwalteten Änderungen zurücknehmen. Standardmäßig behältst du sie. Verwendest du direkt den nativen Deaktivieren- oder Entfernen-Befehl von Home Assistant, bleiben die Dateien ebenfalls erhalten. Solange Änderungen vorliegen, bietet anschließend ein Reparaturdialog dieselbe Entscheidung an. Triff diese Entscheidung, bevor du die Programmdateien des Translators über HACS deinstallierst. Bei einem Dateikonflikt stoppt die automatische Bereinigung und benennt die betroffene Datei.
 
+## Kompatibilität
+
+Unterstützt Home Assistant Core ab 2023.7. Die seit Core 2023.7 verfügbaren Service-Antworten werden für die DeepL-Anbindung benötigt. Die gemeinsame `hass-workflows`-Matrix prüft historische Core-Versionen und die aktuelle stabile Version. Ältere Installationen verwenden passende Oberflächen-, Konfigurations- und Ereignis-APIs. HACS-Ereignisse funktionieren mit installiertem HACS; Marketplace-Ereignisse gelten nur für Core-Versionen mit Marketplace. Verwende für die Oberfläche einen aktuellen Browser. Die automatische Erkennung auf älteren Core-Versionen benötigt DeepL Translator ab 1.0.0b4 und Custom Integration Translator ab 2026.11.05.4.
+
 ## Entwicklung
 
 Die Versionsnummer folgt `YYYY.MM.DD.BUILD`. Die DeepL-Anbindung in `provider.py` nutzt die HA-Aktionen `deepl_translator.get_languages` und `deepl_translator.translate_text`. Dateiverwaltung, Reparaturen und Oberfläche sind davon getrennt. Weitere Anbieter können dieselben Operationen für Sprachliste und Phrasenübersetzung implementieren.
 
-[Apache License 2.0](LICENSE)
+[MIT License](LICENSE)

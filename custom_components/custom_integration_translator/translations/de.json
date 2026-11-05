@@ -29,7 +29,9 @@
         "title": "Übersetzungen verwalten",
         "menu_options": {
           "preferences": "Sprache und Sidebar",
-          "deactivate": "Translator deaktivieren …"
+          "deactivate": "Translator deaktivieren …",
+          "automation": "Automatische Prüfungen",
+          "notifications": "Hinweise"
         }
       },
       "preferences": {
@@ -38,11 +40,7 @@
         "data": {
           "language": "Voreingestellte Zielsprache",
           "sidebar": "Übersetzungen in der Sidebar anzeigen",
-          "protected_words": "Geschützte Wörter, eines pro Zeile",
-          "scan_interval_hours": "Zusätzlicher Kontrolllauf alle … Stunden"
-        },
-        "data_description": {
-          "scan_interval_hours": "Standard 168 Stunden (einmal pro Woche). 0 deaktiviert den regelmäßigen Kontrolllauf. Prüfungen nach Installationen und beim Start bleiben aktiv."
+          "protected_words": "Geschützte Wörter, eines pro Zeile"
         }
       },
       "deactivate": {
@@ -50,6 +48,30 @@
         "description": "Standardmäßig bleiben alle Übersetzungen bestehen. Wähle die Option, um vorher Originale wiederherzustellen und ausschließlich vom Translator angelegte Dateien zu entfernen. {detail}",
         "data": {
           "undo": "Übersetzungen vor der Deaktivierung rückgängig machen"
+        }
+      },
+      "automation": {
+        "title": "Automatische Prüfungen",
+        "description": "Schalte automatische Prüfungen aus, um nur manuell in der Oberfläche zu arbeiten. Die einzelnen Prüfauslöser und das Intervall bleiben für später gespeichert. Diese Einstellungen verändern keine Übersetzungsdateien.",
+        "data": {
+          "automatic_checks": "Automatische Prüfungen aktivieren",
+          "scan_startup": "Beim Start prüfen",
+          "watch_hacs": "Nach HACS-Installationen und -Deinstallationen prüfen",
+          "watch_marketplace": "Nach Marketplace-Installationen und -Deinstallationen prüfen",
+          "scan_loaded": "Beim Laden einer Custom Integration prüfen",
+          "scan_language": "Bei Änderung der Systemsprache prüfen",
+          "scan_interval_hours": "Zusätzlicher Kontrolllauf alle … Stunden"
+        },
+        "data_description": {
+          "scan_interval_hours": "168 Stunden = einmal pro Woche; 0 deaktiviert den periodischen Kontrolllauf. Gewählte Ereignisauslöser bleiben bei eingeschalteten automatischen Prüfungen aktiv."
+        }
+      },
+      "notifications": {
+        "title": "Hinweise",
+        "description": "Wähle, welche Übersetzungshinweise erscheinen. Bereits vorhandene Hinweise der abgeschalteten Art werden beim Speichern entfernt. Der Wiederherstellungsdialog für beibehaltene Übersetzungen bleibt verfügbar.",
+        "data": {
+          "notify_missing": "Auf fehlende Sprachdateien hinweisen",
+          "repair_missing": "Reparatureinträge für fehlende Phrasen erstellen"
         }
       }
     },
