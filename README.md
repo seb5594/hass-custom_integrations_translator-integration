@@ -11,8 +11,8 @@
   <a href="https://paypal.me/seb5594"><img src="https://img.shields.io/static/v1?label=Support&amp;message=PayPal&amp;color=0070BA&amp;logo=paypal&amp;logoColor=white&amp;style=for-the-badge" alt="PayPal" height="40"></a>
   <a href="https://buymeacoffee.com/seb5594"><img src="https://img.shields.io/static/v1?label=Support&amp;message=Buy%20Me%20a%20Coffee&amp;color=FFDD00&amp;logo=buy-me-a-coffee&amp;logoColor=black&amp;style=for-the-badge" alt="Buy Me a Coffee" height="40"></a><br>
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=seb5594&amp;repository=hass-custom_integrations_translator-integration&amp;category=integration"><img src="https://img.shields.io/static/v1?label=HACS%20%C2%B7%20Marketplace&amp;message=Add%20integration&amp;color=41BDF5&amp;logo=homeassistantcommunitystore&amp;logoColor=white&amp;style=for-the-badge" alt="HACS · Marketplace" height="28"></a>
-  <a href="https://github.com/seb5594/hass-custom_integrations_translator-integration/actions/workflows/compat.yml"><img src="https://img.shields.io/static/v1?label=home%20assistant&amp;message=%E2%89%A5%202026.11.0&amp;color=1877A5&amp;style=for-the-badge" alt="home assistant" height="28"></a>
-  <a href="https://github.com/seb5594/hass-custom_integrations_translator-integration/releases"><img src="https://img.shields.io/static/v1?label=version&amp;message=2026.11.05.3&amp;color=1877A5&amp;style=for-the-badge" alt="version" height="28"></a><br>
+  <a href="https://github.com/seb5594/hass-custom_integrations_translator-integration/actions/workflows/compat.yml"><img src="https://img.shields.io/static/v1?label=home%20assistant&amp;message=%E2%89%A5%202023.7.0&amp;color=1877A5&amp;style=for-the-badge" alt="home assistant" height="28"></a>
+  <a href="https://github.com/seb5594/hass-custom_integrations_translator-integration/releases"><img src="https://img.shields.io/static/v1?label=version&amp;message=2026.11.05.4&amp;color=1877A5&amp;style=for-the-badge" alt="version" height="28"></a><br>
   <a href="https://github.com/seb5594/hass-custom_integrations_translator-integration/stargazers"><img src="https://img.shields.io/github/stars/seb5594/hass-custom_integrations_translator-integration?label=stars&amp;style=flat" alt="stars" height="20"></a>
   <a href="https://github.com/seb5594/hass-custom_integrations_translator-integration/releases"><img src="https://img.shields.io/github/downloads/seb5594/hass-custom_integrations_translator-integration/latest/total?label=downloads&amp;color=1877A5&amp;style=flat" alt="downloads" height="20"></a>
   <a href="https://github.com/seb5594/hass-custom_integrations_translator-integration/issues"><img src="https://img.shields.io/github/issues/seb5594/hass-custom_integrations_translator-integration?label=issues&amp;style=flat" alt="issues" height="20"></a>
@@ -27,9 +27,9 @@ Translate individual phrases in HACS integrations from within Home Assistant. Co
 
 ## Installation
 
-1. Use Home Assistant 2026.11.0 or later. Install and configure [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) first.
+1. Use Home Assistant 2023.7.0 or later. Install and configure [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) first.
 2. For manual installation, copy `custom_components/custom_integration_translator` into the matching directory under your Home Assistant configuration folder and restart Home Assistant. For a published release, add this repository to HACS as a custom repository of type **Integration**.
-3. With **DeepL Translator 1.0.0b3 or newer** configured, a **Discovered** card appears under **Settings → Devices & services** after HACS/Marketplace installation or startup. Confirm setup and select your DeepL account. Alternatively, use **Add integration → Custom Integration Translator**. Home Assistant's **Ignore** option hides the suggestion persistently. Manual setup still works with older DeepL versions. The discovery card appears in the integrations overview; the associated device is created after setup.
+3. With **DeepL Translator 1.0.0b4 or newer** configured, a **Discovered** card appears under **Settings → Devices & services** after HACS/Marketplace installation or startup. Confirm setup and select your DeepL account. Alternatively, use **Add integration → Custom Integration Translator**. Home Assistant's **Ignore** option hides the suggestion persistently. Manual setup still works with older DeepL versions. The discovery card appears in the integrations overview; the associated device is created after setup.
 4. As an administrator, press **Open translations** on the integration's device, call `custom_integration_translator.open_workspace`, or visit `/custom-integration-translator` on your instance. Refresh the browser after initial setup if needed. Automations without a user context post a notification linking to the workspace.
 
 ## Translate selected phrases
@@ -45,13 +45,20 @@ Choose an integration. Missing phrases are preselected. Compare the source and c
 
 ## Discovery and recovery
 
-The translator reacts to completed HACS and Marketplace installations, updates and removals, as well as custom integration loading and system language changes. Events within ten seconds are combined into one check. A startup check and a weekly fallback cover manual file copies. Under **Configure → Language and sidebar**, set the additional check interval to 0–168 hours. The default is 168 hours (one week). Explicitly saved intervals are preserved. Setting 0 disables only the periodic check. A persistent notification links directly to an integration missing the selected language. A Repairs issue links to the missing phrases when a translation already exists. Translation starts only after your selection.
+The translator reacts to completed HACS and Marketplace installations, updates and removals, as well as custom integration loading and system language changes. Events within ten seconds are combined into one check. A startup check and a weekly fallback cover manual file copies. Under **Configure → Automatic checks**, set the additional check interval to 0–168 hours. The default is 168 hours (one week). Explicitly saved intervals are preserved. Setting 0 disables only the periodic check. A persistent notification links directly to an integration missing the selected language. A Repairs issue links to the missing phrases when a translation already exists. Translation starts only after your selection.
 
 Before modifying an existing file, the translator saves its exact bytes as `translations/<language>.json.bak`. A recovery journal in `.storage/custom_integration_translator/` also holds the original outside the HACS-managed directory. The initial developer version stays available for download even after a restore and a later upstream release. Include that directory in backups.
 
 Use **Restore original** to restore the developer's bytes, or **Delete generated file** if the translator created the file. External edits suspend translation. When an original exists, it is available for download. Explicitly restoring across an external edit preserves the newer file as `<language>.json.<SHA256>.bak`. Automatic cleanup stops on a conflict.
 
 Use **Configure → Disable translator** to choose whether to undo all changes before disabling. Keeping translations is the default. Using Home Assistant's native Disable or Delete command also keeps files and offers a Repairs dialog afterward if there are managed translations. Complete recovery before uninstalling the translator's code through HACS.
+
+
+Under **Configure → Automatic checks**, disable all background checks with the master switch, or separately control startup, HACS, Marketplace, custom integration loading and system language changes. The 0–168 hour interval is on the same page. **Configure → Notifications** separately controls missing-language notifications and missing-phrase Repairs issues. Saving removes existing translation suggestions of a disabled type; recovery dialogs remain available. Manual selection, translation and restoration in the workspace still work. These switches default to on and preserve other preferences. In DeepL Translator 1.0.0b4+, **Configure → Discover Custom Integration Translator** controls the initial discovery suggestion per DeepL account; disable it on every account to stop suggestions entirely.
+
+## Compatibility
+
+Supports Home Assistant Core 2023.7 and newer. Service responses, introduced in Core 2023.7, are required for the DeepL integration contract. The shared `hass-workflows` compatibility matrix tests historical Core releases and the current stable release. Older installations use compatible frontend, configuration and event APIs. HACS events work when HACS is installed; Marketplace events apply only to Core versions that provide Marketplace. Use a current browser for the workspace. Automatic discovery on older Core versions requires DeepL Translator 1.0.0b4 and Custom Integration Translator 2026.11.05.4 or newer.
 
 ## Development
 
@@ -70,7 +77,7 @@ If my work helped you or turned out to be useful, show your appreciation with a 
 <!-- license:begin (generated from the license file) -->
 ## License
 
-[![license](https://img.shields.io/static/v1?label=license&message=Apache-2.0&color=5B6770&style=flat)](LICENSE)
+[![license](https://img.shields.io/static/v1?label=license&message=MIT&color=5B6770&style=flat)](LICENSE)
 
-Published under the [Apache License 2.0](LICENSE).
+Published under the [MIT License](LICENSE).
 <!-- license:end -->

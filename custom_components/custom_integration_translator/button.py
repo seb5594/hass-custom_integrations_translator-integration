@@ -1,7 +1,11 @@
 """Config entry shortcut to the translation workspace."""
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.helpers.device_registry import DeviceInfo
+
+try:
+    from homeassistant.helpers.device_registry import DeviceInfo
+except ImportError:
+    from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 
 from . import open_workspace

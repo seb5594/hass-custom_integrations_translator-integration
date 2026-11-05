@@ -10,7 +10,12 @@ from homeassistant.helpers import issue_registry as ir
 
 from .catalog import Catalog, CatalogError
 from .const import DOMAIN, NAME, PANEL
-from .discovery import monitor
+from .discovery import (
+    CONF_AUTOMATIC_CHECKS,
+    CONF_NOTIFY_MISSING,
+    CONF_REPAIR_MISSING,
+    monitor,
+)
 from .provider import DeepLProvider
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,7 +82,13 @@ class Runtime:
         monitor(self)
 
     async def refresh(self, now=None):
-        if not self.active:
+        if not self.active or not self.entry.options.get(CONF_AUTOMATIC_CHECKS, True):
+            return
+        if not any(
+            self.entry.options.get(key, True)
+            for key in (CONF_NOTIFY_MISSING, CONF_REPAIR_MISSING)
+        ):
+            self.cleanup()
             return
         async with self.lock:
             if not self.active:
@@ -104,6 +115,8 @@ class Runtime:
                 key = f"{domain}_{language}"
                 url = f"/{PANEL}?" + urlencode({"domain": domain, "language": language})
                 if item["exists"]:
+                    if not self.entry.options.get(CONF_REPAIR_MISSING, True):
+                        continue
                     issues.add(key)
                     ir.async_create_issue(
                         self.hass,
@@ -120,6 +133,8 @@ class Runtime:
                         },
                     )
                 else:
+                    if not self.entry.options.get(CONF_NOTIFY_MISSING, True):
+                        continue
                     alerts.add(key)
                     if key not in self.alerts:
                         label = (
@@ -142,3 +157,5 @@ class Runtime:
             persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_{key}")
         for key in self.issues:
             ir.async_delete_issue(self.hass, DOMAIN, key)
+        self.alerts.clear()
+        self.issues.clear()
