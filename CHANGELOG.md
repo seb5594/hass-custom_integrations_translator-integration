@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.05.5
+
+- Include the MIT license and copyright notice in the installable integration ZIP as well as the repository.
+
 ## 2026.11.05.4
 
 - Support Core 2023.7 and newer through compatible schema, frontend, runtime, options and event APIs, with historical Core tests.
