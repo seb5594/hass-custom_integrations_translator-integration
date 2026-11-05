@@ -30,7 +30,11 @@
         "data": {
           "language": "Default target language",
           "sidebar": "Show translations in the sidebar",
-          "protected_words": "Protected words, one per line"
+          "protected_words": "Protected words, one per line",
+          "scan_interval_hours": "Additional check interval in hours"
+        },
+        "data_description": {
+          "scan_interval_hours": "Default 24 hours. Set to 0 to disable the periodic check. Checks after installations and at startup stay enabled."
         }
       },
       "deactivate": {

@@ -30,7 +30,11 @@
         "data": {
           "language": "Voreingestellte Zielsprache",
           "sidebar": "Übersetzungen in der Sidebar anzeigen",
-          "protected_words": "Geschützte Wörter, eines pro Zeile"
+          "protected_words": "Geschützte Wörter, eines pro Zeile",
+          "scan_interval_hours": "Zusätzlicher Kontrolllauf alle … Stunden"
+        },
+        "data_description": {
+          "scan_interval_hours": "Standard 24 Stunden. 0 deaktiviert den regelmäßigen Kontrolllauf. Prüfungen nach Installationen und beim Start bleiben aktiv."
         }
       },
       "deactivate": {

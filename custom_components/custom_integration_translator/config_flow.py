@@ -7,6 +7,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
 from .const import DEEPL, DOMAIN, NAME
+from .discovery import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
 
 
 class TranslatorFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -74,6 +75,20 @@ class TranslatorOptions(config_entries.OptionsFlow):
                         default=entry.options.get("protected_words", ""),
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(multiline=True)
+                    ),
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL,
+                        default=entry.options.get(
+                            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=168,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                            unit_of_measurement="h",
+                        )
                     ),
                 }
             ),

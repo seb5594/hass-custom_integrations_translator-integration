@@ -18,7 +18,7 @@ from .const import ASSETS, DOMAIN, NAME, PANEL
 from .runtime import Runtime
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-LAUNCHER = f"{ASSETS}/launcher.js?v=2026.11.05.1"
+LAUNCHER = f"{ASSETS}/launcher.js?v=2026.11.05.2"
 
 
 @callback
@@ -61,7 +61,7 @@ async def async_setup_entry(hass, entry):
         "cit-workspace",
         sidebar_title=NAME if entry.options.get("sidebar") else None,
         sidebar_icon="mdi:translate",
-        module_url=f"{ASSETS}/workspace.js?v=2026.11.05.1",
+        module_url=f"{ASSETS}/workspace.js?v=2026.11.05.2",
         require_admin=True,
         config_panel_domain=DOMAIN,
     )

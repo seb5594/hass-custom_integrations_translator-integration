@@ -2,16 +2,15 @@
 
 import asyncio
 import logging
-from datetime import timedelta
 from urllib.parse import urlencode
 
 from homeassistant.components import persistent_notification
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.helpers.event import async_track_time_interval
 
 from .catalog import Catalog, CatalogError
 from .const import DOMAIN, NAME, PANEL
+from .discovery import monitor
 from .provider import DeepLProvider
 
 _LOGGER = logging.getLogger(__name__)
@@ -75,19 +74,14 @@ class Runtime:
             await self.io(self.catalog.restore_all)
 
     def monitor(self):
-        self.entry.async_on_unload(
-            async_track_time_interval(
-                self.hass, self.refresh, timedelta(minutes=5), cancel_on_shutdown=True
-            )
-        )
-        self.entry.async_create_background_task(
-            self.hass, self.refresh(), "Scan custom translations"
-        )
+        monitor(self)
 
     async def refresh(self, now=None):
-        if self.lock.locked() or not self.active:
+        if not self.active:
             return
         async with self.lock:
+            if not self.active:
+                return
             try:
                 language = self.language
                 supported = await self.provider.languages()

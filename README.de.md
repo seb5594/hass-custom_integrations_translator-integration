@@ -25,7 +25,11 @@ Die Ansicht wählt die Systemsprache vor. Angeboten werden Sprachschlüssel, die
 
 ## Neue Integrationen und Reparaturen
 
-Beim Start und alle fünf Minuten prüft der Translator `custom_components`. Fehlt eine unterstützte Zielsprache, führt eine persistente Benachrichtigung unmittelbar zur passenden Phrasenliste. Existiert die Sprachdatei bereits, fehlen aber Schlüssel aus der Quellfassung, erscheint unter **Einstellungen → System → Reparaturen** ein Eintrag mit Anzahl und Link. Die Prüfung allein schreibt keine Sprachdateien und beauftragt keine Übersetzung.
+Nach Installationen, Updates und Deinstallationen über HACS oder den Marketplace reagiert der Translator auf deren Dispatcher-Signale. Auch das Laden einer Custom Integration und eine Änderung der Systemsprache lösen eine Prüfung aus. Ereignisse innerhalb von zehn Sekunden werden gebündelt.
+
+Zusätzlich prüft der Translator beim Start und standardmäßig einmal täglich `custom_components`. Fehlt eine unterstützte Zielsprache, führt eine persistente Benachrichtigung unmittelbar zur passenden Phrasenliste. Existiert die Sprachdatei bereits, fehlen aber Schlüssel aus der Quellfassung, erscheint unter **Einstellungen → System → Reparaturen** ein Eintrag mit Anzahl und Link. Unter **Konfigurieren → Sprache und Sidebar → Zusätzlicher Kontrolllauf** sind 0 bis 168 Stunden einstellbar. 0 deaktiviert den periodischen Kontrolllauf. Manuell kopierte Dateien werden spätestens beim nächsten Kontrolllauf oder Neustart erfasst.
+
+Die Prüfung allein schreibt keine Sprachdateien und beauftragt keine Übersetzung.
 
 ## Original wiederherstellen oder Änderungen behalten
 
