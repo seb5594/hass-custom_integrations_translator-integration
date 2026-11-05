@@ -1,0 +1,90 @@
+{
+  "title": "Custom Integration Translator",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose a DeepL account",
+        "description": "Selected phrases will be translated through this configured account.",
+        "data": {
+          "deepl_entry": "DeepL account"
+        }
+      }
+    },
+    "abort": {
+      "deepl_required": "Set up [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) first, then try again.",
+      "already_configured": "The translator is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manage translations",
+        "menu_options": {
+          "preferences": "Language and sidebar",
+          "deactivate": "Disable translator…"
+        }
+      },
+      "preferences": {
+        "title": "Language and sidebar",
+        "description": "Choose “system” to follow the Home Assistant system language.",
+        "data": {
+          "language": "Default target language",
+          "sidebar": "Show translations in the sidebar",
+          "protected_words": "Protected words, one per line",
+          "scan_interval_hours": "Additional check interval in hours"
+        },
+        "data_description": {
+          "scan_interval_hours": "Default 24 hours. Set to 0 to disable the periodic check. Checks after installations and at startup stay enabled."
+        }
+      },
+      "deactivate": {
+        "title": "Disable the translator?",
+        "description": "By default all translations are kept. Select the option to first restore originals and remove files created solely by the translator. {detail}",
+        "data": {
+          "undo": "Undo translations before disabling"
+        }
+      }
+    },
+    "abort": {
+      "deactivated": "The translator is being disabled.",
+      "provider_unavailable": "The configured DeepL account is unavailable."
+    },
+    "error": {
+      "restore_failed": "Cleanup stopped. Review the affected file in the workspace."
+    }
+  },
+  "entity": {
+    "button": {
+      "open_workspace": {
+        "name": "Open translations"
+      }
+    }
+  },
+  "services": {
+    "open_workspace": {
+      "name": "Open translations",
+      "description": "Open the workspace in the calling administrator’s visible browser. Automations without a user context create a notification with a link."
+    }
+  },
+  "issues": {
+    "missing": {
+      "title": "{name} · {count} missing phrases ({language})",
+      "description": "The existing translation is missing source phrases. [Review and add phrases]({url})"
+    },
+    "retained": {
+      "title": "Review retained translations",
+      "description": "The translator was disabled or removed. {count} managed language files were kept. Confirm that choice or undo the changes.",
+      "fix_flow": {
+        "step": {
+          "review": {
+            "title": "Keep translations?",
+            "description": "Leave the box unchecked to keep the files. Undoing changes restores originals and removes generated files. {detail}",
+            "data": {
+              "undo": "Undo all managed changes"
+            }
+          }
+        }
+      }
+    }
+  }
+}

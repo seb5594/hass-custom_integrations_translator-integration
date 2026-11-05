@@ -1,4 +1,5 @@
 """Static checks that need no Home Assistant installation."""
+
 import json
 import unittest
 from pathlib import Path
@@ -9,13 +10,18 @@ COMPONENT = next((ROOT / "custom_components").iterdir())
 
 class IntegrationLayout(unittest.TestCase):
     def test_manifest_domain_matches_folder_and_constants(self):
-        manifest = json.loads((COMPONENT / "manifest.json").read_text())
+        manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["domain"], COMPONENT.name)
-        self.assertIn(f'DOMAIN = "{COMPONENT.name}"', (COMPONENT / "const.py").read_text())
+        self.assertIn(
+            f'DOMAIN = "{COMPONENT.name}"',
+            (COMPONENT / "const.py").read_text(encoding="utf-8"),
+        )
 
     def test_translations_mirror_strings(self):
-        strings = json.loads((COMPONENT / "strings.json").read_text())
-        english = json.loads((COMPONENT / "translations/en.json").read_text())
+        strings = json.loads((COMPONENT / "strings.json").read_text(encoding="utf-8"))
+        english = json.loads(
+            (COMPONENT / "translations/en.json").read_text(encoding="utf-8")
+        )
         self.assertEqual(strings, english)
 
 

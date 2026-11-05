@@ -1,0 +1,7 @@
+{
+  "services": {
+    "open_workspace": {
+      "service": "mdi:translate"
+    }
+  }
+}
