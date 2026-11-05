@@ -114,6 +114,22 @@ def key_id(path):
     return json.dumps(path, ensure_ascii=False, separators=(",", ":"))
 
 
+def source_candidates(folder, target, language):
+    """Only enumerate fallback languages if the preferred English sources fail."""
+    if language != "en":
+        yield target.parent / "en.json", "en"
+        yield folder / "strings.json", "en"
+    for path in sorted(target.parent.glob("*.json")):
+        if (
+            path != target
+            and path.stem != "en"
+            and re.fullmatch(r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", path.stem)
+        ):
+            yield path, path.stem
+    if language == "en":
+        yield folder / "strings.json", "en"
+
+
 class Catalog:
     def __init__(self, config):
         self.root = Path(config) / "custom_components"
@@ -142,7 +158,7 @@ class Catalog:
             state.update(pending)
         return state
 
-    def detail(self, domain, language):
+    def detail(self, domain, language, *, include_rows=True):
         folder, target, backup, journal = self.paths(domain, language)
         manifest = dictionary(safe(folder / "manifest.json").read_bytes())
         raw = read(target)
@@ -158,19 +174,8 @@ class Catalog:
             conflict = True
         source = None
         source_lang = None
-        candidates = []
-        if language != "en":
-            candidates.extend(
-                [(target.parent / "en.json", "en"), (folder / "strings.json", "en")]
-            )
-        candidates.extend(
-            (p, p.stem)
-            for p in sorted(target.parent.glob("*.json"))
-            if p != target and re.fullmatch(r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", p.stem)
-        )
-        if language == "en":
-            candidates.append((folder / "strings.json", "en"))
-        for candidate, code in candidates:
+        source_phrases = {}
+        for candidate, code in source_candidates(folder, target, language):
             data = read(candidate)
             if data is not None and candidate.parent == target.parent:
                 # A generated language must never become the source for another translation.
@@ -179,21 +184,11 @@ class Catalog:
                     source_state, candidate, data
                 ):
                     data = self.original(source_state)
-            if data is not None and list(phrases(dictionary(data))):
+            if data is not None and (source_phrases := dict(phrases(dictionary(data)))):
                 source, source_lang = data, code
                 break
         values = dict(phrases(current))
-        generated = set(state["keys"]) if state and not conflict else set()
-        rows = [
-            {
-                "path": list(path),
-                "source": text,
-                "target": values.get(path),
-                "generated": key_id(path) in generated,
-            }
-            for path, text in phrases(dictionary(source) if source is not None else {})
-        ]
-        return {
+        result = {
             "domain": domain,
             "name": manifest.get("name", domain),
             "language": language,
@@ -203,22 +198,34 @@ class Catalog:
             "original": state is not None and state["original"] is not None,
             "initial_available": initial_path(journal).is_file(),
             "conflict": conflict,
-            "missing": sum(row["target"] is None for row in rows),
-            "count": len(rows),
-            "rows": rows,
-            "target_hash": digest(raw),
-            "revision": digest(
-                encode(
-                    [
-                        source_lang,
-                        digest(source),
-                        digest(raw),
-                        stamp(target),
-                        digest(read(journal)),
-                    ]
-                )
-            ),
+            "missing": sum(path not in values for path in source_phrases),
+            "count": len(source_phrases),
         }
+        if not include_rows:
+            return result
+        generated = set(state["keys"]) if state and not conflict else set()
+        result["rows"] = [
+            {
+                "path": list(path),
+                "source": text,
+                "target": values.get(path),
+                "generated": bool(generated) and key_id(path) in generated,
+            }
+            for path, text in source_phrases.items()
+        ]
+        result["target_hash"] = digest(raw)
+        result["revision"] = digest(
+            encode(
+                [
+                    source_lang,
+                    digest(source),
+                    digest(raw),
+                    stamp(target),
+                    digest(read(journal)),
+                ]
+            )
+        )
+        return result
 
     def scan(self, language):
         items = []
@@ -226,8 +233,7 @@ class Catalog:
             if folder.name.startswith(".") or not (folder / "manifest.json").is_file():
                 continue
             try:
-                item = self.detail(folder.name, language)
-                del item["rows"]
+                item = self.detail(folder.name, language, include_rows=False)
             except (OSError, ValueError, KeyError) as err:
                 item = {
                     "name": folder.name,

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.11.05.6
+
+- Reduce scan work by skipping editor rows and revision hashes, parsing the selected source once and only enumerating fallback languages when needed. File conflict and original recovery checks remain active.
+- Send identical selected source phrases to DeepL only once per request, then restore the selected order and protected terms for every phrase.
+- Avoid background listeners and timers when both missing-language notifications and missing-phrase Repairs issues are disabled.
+
 ## 2026.11.05.5
 
 - Include the MIT license and copyright notice in the installable integration ZIP as well as the repository.

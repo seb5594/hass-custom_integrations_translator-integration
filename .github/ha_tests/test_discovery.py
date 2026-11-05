@@ -149,6 +149,16 @@ async def test_master_switch_prevents_all_background_work(hass, discovery):
     runtime.refresh.assert_not_called()
 
 
+async def test_disabled_notices_register_no_background_work(hass, discovery):
+    runtime, cleanups = discovery
+    runtime.entry.options = {"notify_missing": False, "repair_missing": False}
+    monitor(runtime)
+    assert not cleanups
+    async_dispatcher_send(hass, "hacs_dispatch_repository", {"action": "install"})
+    await advance(hass, 8 * 24 * 3600)
+    runtime.refresh.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "option,event,data,dispatcher",
     [

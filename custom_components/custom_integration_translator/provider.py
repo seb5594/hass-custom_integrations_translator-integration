@@ -52,6 +52,9 @@ class DeepLProvider:
         }
 
     async def translate(self, phrases, source, target, terms):
+        if not phrases:
+            return []
+        unique_phrases = list(dict.fromkeys(phrases))
         # The same check applies to credentials using the API and the MCP backend.
         languages = await self.languages()
         if target not in languages:
@@ -65,10 +68,10 @@ class DeepLProvider:
         prefix = "CIT" + uuid4().hex + "X"
         token_pattern = re.compile(re.escape(prefix) + r"\d+X")
         results = []
-        for start in range(0, len(phrases), 50):
+        for start in range(0, len(unique_phrases), 50):
             masked = []
             mappings = []
-            for phrase in phrases[start : start + 50]:
+            for phrase in unique_phrases[start : start + 50]:
                 text, mapping = mask_phrase(pattern, prefix, phrase)
                 masked.append(text)
                 mappings.append(mapping)
@@ -96,4 +99,5 @@ class DeepLProvider:
                         lambda match, terms=mapping: terms[match.group()], value
                     )
                 )
-        return results
+        translated = dict(zip(unique_phrases, results, strict=True))
+        return [translated[phrase] for phrase in phrases]
