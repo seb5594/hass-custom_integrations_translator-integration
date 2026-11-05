@@ -14,7 +14,7 @@ from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integrat
 from .const import DOMAIN
 
 CONF_SCAN_INTERVAL = "scan_interval_hours"
-DEFAULT_SCAN_INTERVAL = 24
+DEFAULT_SCAN_INTERVAL = 168
 EVENT_COOLDOWN = 10
 _LOGGER = logging.getLogger(__name__)
 

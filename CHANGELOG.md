@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.11.05.3
+
+- Offer a native discovery card with explicit confirmation through DeepL Translator 1.0.0b3 or newer after installation or startup. Existing, disabled and ignored entries are respected.
+- Default the additional scan to once a week (168 hours); preserve explicitly saved intervals and support 0 to disable polling.
+
 ## 2026.11.05.2
 
 - Detect HACS and Marketplace installations and removals through dispatcher signals, with events coalesced over ten seconds.

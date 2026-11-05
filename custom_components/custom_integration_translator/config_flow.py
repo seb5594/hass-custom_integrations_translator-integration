@@ -13,6 +13,27 @@ from .discovery import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
 class TranslatorFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
+    async def async_step_integration_discovery(self, discovery_info):
+        """Offer setup when the running DeepL integration finds our files."""
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+        self.context["title_placeholders"] = {"name": NAME}
+        return await self.async_step_discovery_confirm()
+
+    async def async_step_discovery_confirm(self, user_input=None):
+        """Keep the discovery card until the user chooses to configure or ignore it."""
+        errors = {}
+        if user_input is not None:
+            if any(
+                entry.state is config_entries.ConfigEntryState.LOADED
+                for entry in self.hass.config_entries.async_entries(DEEPL)
+            ):
+                return await self.async_step_user()
+            errors["base"] = "deepl_required"
+        return self.async_show_form(
+            step_id="discovery_confirm", data_schema=vol.Schema({}), errors=errors
+        )
+
     async def async_step_user(self, user_input=None):
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
