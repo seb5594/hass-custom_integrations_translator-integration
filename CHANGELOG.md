@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.11.05.7
+
+- Render at most 100 phrase rows per page to keep large translation editors responsive. Bulk selection updates existing checkboxes without rebuilding the editor.
+- Search source phrases, existing translations and keys. Preserve selections when paging or searching, show the total selected count and let bulk actions select matching results across all pages.
+- Add frontend regression tests to the shared hass-workflows validation.
+
 ## 2026.11.05.6
 
 - Reduce scan work by skipping editor rows and revision hashes, parsing the selected source once and only enumerating fallback languages when needed. File conflict and original recovery checks remain active.
