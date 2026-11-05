@@ -89,7 +89,8 @@ async def test_metadata_and_download_progress_do_not_scan(hass, discovery):
 
 
 @pytest.mark.parametrize(
-    ("options", "hours"), [({}, 24), ({"scan_interval_hours": 48}, 48)]
+    ("options", "hours"),
+    [({}, 168), ({"scan_interval_hours": 24}, 24), ({"scan_interval_hours": 48}, 48)],
 )
 async def test_fallback_interval(hass, discovery, options, hours):
     runtime, _ = discovery
