@@ -8,11 +8,19 @@
         "data": {
           "deepl_entry": "DeepL-Konto"
         }
+      },
+      "discovery_confirm": {
+        "title": "Custom Integration Translator",
+        "description": "Übersetze fehlende Texte deiner Custom Integrations mit deinem eingerichteten DeepL-Konto. Vergleiche Quelle und Übersetzung, wähle einzelne Phrasen und schütze Produktnamen vor dem Übersetzen. Möchtest du den Translator jetzt einrichten?"
       }
     },
     "abort": {
       "deepl_required": "Richte zuerst [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) ein und starte die Einrichtung erneut.",
       "already_configured": "Der Translator ist bereits eingerichtet."
+    },
+    "flow_title": "{name}",
+    "error": {
+      "deepl_required": "Aktuell ist kein DeepL-Konto verfügbar. Richte DeepL Translator ein oder aktiviere ihn und versuche es erneut."
     }
   },
   "options": {
@@ -34,7 +42,7 @@
           "scan_interval_hours": "Zusätzlicher Kontrolllauf alle … Stunden"
         },
         "data_description": {
-          "scan_interval_hours": "Standard 24 Stunden. 0 deaktiviert den regelmäßigen Kontrolllauf. Prüfungen nach Installationen und beim Start bleiben aktiv."
+          "scan_interval_hours": "Standard 168 Stunden (einmal pro Woche). 0 deaktiviert den regelmäßigen Kontrolllauf. Prüfungen nach Installationen und beim Start bleiben aktiv."
         }
       },
       "deactivate": {

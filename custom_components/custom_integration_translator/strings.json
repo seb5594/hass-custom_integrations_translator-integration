@@ -8,11 +8,19 @@
         "data": {
           "deepl_entry": "DeepL account"
         }
+      },
+      "discovery_confirm": {
+        "title": "Custom Integration Translator",
+        "description": "Translate missing phrases in your custom integrations with your configured DeepL account. Review source and target text, select phrases and protect product names before translating. Set up the translator now?"
       }
     },
     "abort": {
       "deepl_required": "Set up [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) first, then try again.",
       "already_configured": "The translator is already configured."
+    },
+    "flow_title": "{name}",
+    "error": {
+      "deepl_required": "No DeepL account is currently available. Set up or enable DeepL Translator, then try again."
     }
   },
   "options": {
@@ -34,7 +42,7 @@
           "scan_interval_hours": "Additional check interval in hours"
         },
         "data_description": {
-          "scan_interval_hours": "Default 24 hours. Set to 0 to disable the periodic check. Checks after installations and at startup stay enabled."
+          "scan_interval_hours": "Default 168 hours (once a week). Set to 0 to disable the periodic check. Checks after installations and at startup stay enabled."
         }
       },
       "deactivate": {
