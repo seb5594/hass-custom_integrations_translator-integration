@@ -80,5 +80,5 @@ async def dispatch(runtime, msg):
         )
     if action == "restore":
         await runtime.restore(domain, language, msg.get("revision"))
-    await runtime.refresh()
+    await runtime.refresh(domain=domain)
     return {}
