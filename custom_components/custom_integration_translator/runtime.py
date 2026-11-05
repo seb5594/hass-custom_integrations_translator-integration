@@ -36,6 +36,7 @@ class Runtime:
         self.active = True
         self.alerts = set()
         self.issues = set()
+        self.notice_language = None
 
     @property
     def language(self):
@@ -81,7 +82,7 @@ class Runtime:
     def monitor(self):
         monitor(self)
 
-    async def refresh(self, now=None):
+    async def refresh(self, now=None, *, domain=None):
         if not self.active or not self.entry.options.get(CONF_AUTOMATIC_CHECKS, True):
             return
         if not any(
@@ -95,18 +96,25 @@ class Runtime:
                 return
             try:
                 language = self.language
+                # A language change invalidates every previous suggestion. A local
+                # write otherwise only needs to refresh the affected integration.
+                if self.notice_language not in (None, language):
+                    domain = None
                 supported = await self.provider.languages()
-                items = (
-                    await self.io(self.catalog.scan, language)
-                    if language in supported
-                    else []
-                )
+                if language not in supported:
+                    domain, items = None, []
+                elif domain is not None:
+                    items = [await self.io(self.catalog.summary, domain, language)]
+                else:
+                    items = await self.io(self.catalog.scan, language)
             except (HomeAssistantError, OSError, ValueError) as err:
                 _LOGGER.debug("Discovery postponed: %s", err)
                 return
             if not self.active:
                 return
-            alerts, issues = set(), set()
+            key = f"{domain}_{language}"
+            alerts = self.alerts - {key} if domain is not None else set()
+            issues = self.issues - {key} if domain is not None else set()
             german = self.hass.config.language.startswith("de")
             for item in items:
                 if not item["missing"] or item.get("conflict"):
@@ -151,6 +159,7 @@ class Runtime:
             for key in self.issues - issues:
                 ir.async_delete_issue(self.hass, DOMAIN, key)
             self.alerts, self.issues = alerts, issues
+            self.notice_language = language
 
     def cleanup(self):
         for key in self.alerts:
@@ -159,3 +168,4 @@ class Runtime:
             ir.async_delete_issue(self.hass, DOMAIN, key)
         self.alerts.clear()
         self.issues.clear()
+        self.notice_language = None

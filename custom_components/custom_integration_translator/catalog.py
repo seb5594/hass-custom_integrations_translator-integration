@@ -227,21 +227,24 @@ class Catalog:
         )
         return result
 
+    def summary(self, domain, language):
+        """Read fresh summary data for one integration without building editor rows."""
+        try:
+            return self.detail(domain, language, include_rows=False)
+        except (OSError, ValueError, KeyError) as err:
+            return {
+                "name": domain,
+                "domain": domain,
+                "error": str(err),
+                "missing": 0,
+            }
+
     def scan(self, language):
         items = []
         for folder in sorted(safe(self.root).iterdir()):
             if folder.name.startswith(".") or not (folder / "manifest.json").is_file():
                 continue
-            try:
-                item = self.detail(folder.name, language, include_rows=False)
-            except (OSError, ValueError, KeyError) as err:
-                item = {
-                    "name": folder.name,
-                    "domain": folder.name,
-                    "error": str(err),
-                    "missing": 0,
-                }
-            items.append(item)
+            items.append(self.summary(folder.name, language))
         return sorted(
             items,
             key=lambda item: (

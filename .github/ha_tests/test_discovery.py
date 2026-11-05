@@ -121,17 +121,20 @@ async def test_startup_still_scans_with_periodic_check_disabled(hass, discovery)
     runtime.refresh.assert_awaited_once()
 
 
-async def test_discovery_waits_for_translation_lock(hass):
+@pytest.mark.parametrize("domain", [None, "example"])
+async def test_discovery_waits_for_translation_lock(hass, domain):
     entry = SimpleNamespace(data={"deepl_entry": "account"}, options={})
     runtime = Runtime(hass, entry)
     runtime.provider.languages = AsyncMock(return_value={hass.config.language: "EN"})
     runtime.catalog.scan = Mock(return_value=[])
+    runtime.catalog.summary = Mock(return_value={"domain": "example", "missing": 0})
     async with runtime.lock:
-        task = asyncio.create_task(runtime.refresh())
+        task = asyncio.create_task(runtime.refresh(domain=domain))
         await asyncio.sleep(0)
         assert not task.done()
     await task
-    runtime.catalog.scan.assert_called_once()
+    assert runtime.catalog.scan.call_count == int(domain is None)
+    assert runtime.catalog.summary.call_count == int(domain is not None)
 
 
 async def test_master_switch_prevents_all_background_work(hass, discovery):
