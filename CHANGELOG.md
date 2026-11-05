@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.11.05.8
+
+- After translating or restoring a file, refresh suggestions only for the edited integration instead of scanning every custom integration. Preserve unrelated notifications and Repairs issues.
+- Reconcile all suggestions when the monitored language changes or is no longer supported. Targeted refreshes still wait for active file operations and honor automatic-check settings.
+
 ## 2026.11.05.7
 
 - Render at most 100 phrase rows per page to keep large translation editors responsive. Bulk selection updates existing checkboxes without rebuilding the editor.

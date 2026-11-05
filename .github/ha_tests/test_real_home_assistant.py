@@ -275,3 +275,105 @@ async def test_settings_pages_preserve_each_other_and_work_offline(
     assert not entry.options["repair_missing"]
     assert not entry.options["watch_hacs"]
     assert not entry.options["automatic_checks"]
+
+
+@pytest.mark.parametrize("edited_language", ["de", "fr"])
+async def test_mutations_refresh_only_the_edited_integration(
+    hass, frontend_ready, edited_language
+):
+    import json
+
+    for domain in ("edited", "unrelated", "partial"):
+        folder = frontend_ready / "custom_components" / domain
+        (folder / "translations").mkdir(parents=True)
+        (folder / "manifest.json").write_text(json.dumps({"name": domain}))
+        (folder / "translations/en.json").write_text('{"one":"Open","two":"Close"}')
+    (frontend_ready / "custom_components/partial/translations/de.json").write_text(
+        '{"one":"Auf"}'
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data={"deepl_entry": "account"})
+    runtime = Runtime(hass, entry)
+    runtime.provider.languages = AsyncMock(return_value={"de": "DE", "fr": "FR"})
+    runtime.provider.translate = AsyncMock(return_value=["Translated"])
+    await runtime.refresh()
+    assert runtime.alerts == {"edited_de", "unrelated_de"}
+    assert runtime.issues == {"partial_de"}
+    unrelated_issue = ir.async_get(hass).async_get_issue(DOMAIN, "partial_de")
+    detail = await dispatch(
+        runtime, {"action": "detail", "domain": "edited", "language": edited_language}
+    )
+    with (
+        patch.object(
+            runtime.catalog, "scan", side_effect=AssertionError("Unexpected full scan")
+        ),
+        patch.object(
+            runtime.catalog, "summary", wraps=runtime.catalog.summary
+        ) as summary,
+    ):
+        await dispatch(
+            runtime,
+            {
+                "action": "translate",
+                "domain": "edited",
+                "language": edited_language,
+                "revision": detail["revision"],
+                "paths": [["one"]],
+            },
+        )
+        summary.assert_called_once_with("edited", "de")
+        assert "unrelated_de" in runtime.alerts
+        assert (
+            ir.async_get(hass).async_get_issue(DOMAIN, "partial_de") is unrelated_issue
+        )
+        if edited_language == "de":
+            assert "edited_de" not in runtime.alerts
+            issue = ir.async_get(hass).async_get_issue(DOMAIN, "edited_de")
+            assert issue.translation_placeholders["count"] == "1"
+        else:
+            assert "edited_de" in runtime.alerts
+            assert runtime.issues == {"partial_de"}
+        detail = await dispatch(
+            runtime,
+            {"action": "detail", "domain": "edited", "language": edited_language},
+        )
+        await dispatch(
+            runtime,
+            {
+                "action": "restore",
+                "domain": "edited",
+                "language": edited_language,
+                "revision": detail["revision"],
+            },
+        )
+        assert summary.call_count == 2
+    assert runtime.alerts == {"edited_de", "unrelated_de"}
+    assert runtime.issues == {"partial_de"}
+    assert not (
+        frontend_ready / f"custom_components/edited/translations/{edited_language}.json"
+    ).exists()
+    runtime.cleanup()
+
+
+async def test_targeted_refresh_reconciles_all_notices_after_language_change(
+    hass, frontend_ready
+):
+    for domain in ("one", "two"):
+        folder = frontend_ready / "custom_components" / domain
+        (folder / "translations").mkdir(parents=True)
+        (folder / "manifest.json").write_text('{"name":"Example"}')
+        (folder / "translations/en.json").write_text('{"one":"Open"}')
+    runtime = Runtime(
+        hass, MockConfigEntry(domain=DOMAIN, data={"deepl_entry": "account"})
+    )
+    runtime.provider.languages = AsyncMock(return_value={"de": "DE", "fr": "FR"})
+    await runtime.refresh()
+    hass.config.language = "fr"
+    with patch.object(runtime.catalog, "scan", wraps=runtime.catalog.scan) as scan:
+        await runtime.refresh(domain="one")
+        scan.assert_called_once_with("fr")
+    assert runtime.alerts == {"one_fr", "two_fr"}
+    runtime.provider.languages.return_value = {"de": "DE"}
+    await runtime.refresh(domain="one")
+    assert not runtime.alerts
+    assert not runtime.issues
+    runtime.cleanup()
