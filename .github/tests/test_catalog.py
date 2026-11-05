@@ -134,3 +134,39 @@ class TranslationFiles(unittest.TestCase):
         for domain, language in (("../escape", "de"), ("example", "../outside")):
             with self.assertRaises(catalog.CatalogError):
                 self.catalog.detail(domain, language)
+
+    def test_scan_matches_editor_and_observes_file_changes(self):
+        def check():
+            item = self.catalog.scan("de")[0]
+            detail = self.detail()
+            self.assertEqual(
+                item,
+                {
+                    key: value
+                    for key, value in detail.items()
+                    if key not in ("rows", "revision", "target_hash")
+                },
+            )
+            return item
+
+        self.assertEqual(check()["missing"], 2)
+        self.target.write_bytes(self.original)
+        self.assertEqual(check()["missing"], 1)
+        self.save({("nested", "a.b"): "Auf"})
+        self.assertEqual(check()["missing"], 0)
+        self.target.write_bytes(b'{"nested":{"a":"Developer update"}}')
+        self.assertTrue(check()["conflict"])
+        self.assertEqual(check()["missing"], 1)
+        self.catalog.restore("example", "de", self.detail()["revision"])
+        self.assertEqual(check()["missing"], 1)
+        self.assertEqual(self.target.read_bytes(), self.original)
+
+    def test_fallback_skips_generated_only_source(self):
+        (self.tr / "en.json").unlink()
+        (self.tr / "fr.json").write_text('{"one":"Ouvrir"}')
+        detail = self.catalog.detail("example", "it")
+        self.catalog.save("example", "it", detail["revision"], {("one",): "Aprire"})
+        (self.tr / "fr.json").unlink()
+        self.assertEqual(self.catalog.scan("de")[0]["count"], 0)
+        (self.folder / "strings.json").write_text('{"one":"Open"}')
+        self.assertEqual(self.catalog.scan("de")[0]["source_language"], "en")

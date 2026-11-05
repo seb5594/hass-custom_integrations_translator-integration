@@ -41,6 +41,8 @@ def monitor(runtime):
     hass, entry = runtime.hass, runtime.entry
     if not entry.options.get(CONF_AUTOMATIC_CHECKS, True):
         return
+    if not any(entry.options.get(key, True) for key in NOTICE_OPTIONS):
+        return
     schedule = schedule_refresh(hass, entry, _LOGGER, runtime.refresh, EVENT_COOLDOWN)
 
     @callback
