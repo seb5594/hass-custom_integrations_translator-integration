@@ -1,5 +1,7 @@
 """Exercise setup, discovery, DeepL's service contract and deactivation in a real core."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntryDisabler, ConfigEntryState
@@ -17,15 +19,22 @@ from homeassistant.components.repairs import repairs_flow_manager
 
 from custom_components.custom_integration_translator.api import dispatch
 from custom_components.custom_integration_translator.const import DEEPL, DOMAIN, PANEL
+from custom_components.custom_integration_translator.runtime import Runtime
 
 
 @pytest.fixture
 async def frontend_ready(hass, tmp_path, enable_custom_integrations):
     hass.config.config_dir = str(tmp_path)
     hass.config.language = "de"
-    assert await async_setup_component(hass, "frontend", {})
-    assert await async_setup_component(hass, "persistent_notification", {})
-    return tmp_path
+    # These tests cover frontend registration; onboarding and socket binding are
+    # unrelated. Browser tests separately exercise the actual HTTP server.
+    hass.config.components.add("onboarding")
+    with patch(
+        "homeassistant.components.http.HomeAssistantHTTP.start", new=AsyncMock()
+    ):
+        assert await async_setup_component(hass, "frontend", {})
+        assert await async_setup_component(hass, "persistent_notification", {})
+        yield tmp_path
 
 
 async def test_requires_deepl(hass, frontend_ready):
@@ -78,7 +87,7 @@ async def test_guided_translation_and_recovery(hass, frontend_ready):
     await hass.async_block_till_done()
     entry = result["result"]
     assert entry.state is ConfigEntryState.LOADED
-    runtime = entry.runtime_data
+    runtime = hass.data[DOMAIN]
     assert hass.data[frontend.DATA_PANELS][PANEL].sidebar_title is None
     assert hass.states.async_entity_ids("button")
     assert hass.services.has_service(DOMAIN, "open_workspace")
@@ -118,7 +127,9 @@ async def test_guided_translation_and_recovery(hass, frontend_ready):
     assert entry.state is ConfigEntryState.NOT_LOADED
     assert ir.async_get(hass).async_get_issue(DOMAIN, "retained")
     manager = repairs_flow_manager(hass)
-    repair = await manager.async_init(DOMAIN, context={"issue_id": "retained"})
+    repair = await manager.async_init(
+        DOMAIN, context={"issue_id": "retained"}, data={"issue_id": "retained"}
+    )
     assert repair["step_id"] == "review"
     assert (await manager.async_configure(repair["flow_id"], {"undo": True}))[
         "type"
@@ -152,7 +163,7 @@ async def test_preferences_and_guided_disable(hass, frontend_ready):
     )
     assert saved["type"] == "create_entry"
     await hass.async_block_till_done()
-    assert entry.runtime_data.language == "de"
+    assert hass.data[DOMAIN].language == "de"
     assert hass.data[frontend.DATA_PANELS][PANEL].sidebar_title
     flow = await options.async_init(entry.entry_id)
     form = await options.async_configure(
@@ -163,3 +174,104 @@ async def test_preferences_and_guided_disable(hass, frontend_ready):
     assert result["reason"] == "deactivated"
     await hass.async_block_till_done()
     assert entry.disabled_by is ConfigEntryDisabler.USER
+
+
+@pytest.mark.parametrize(
+    "notify,repair", [(False, False), (False, True), (True, False), (True, True)]
+)
+async def test_notice_switches(hass, frontend_ready, notify, repair):
+    from unittest.mock import AsyncMock, Mock
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"deepl_entry": "account"},
+        options={"notify_missing": notify, "repair_missing": repair},
+    )
+    runtime = Runtime(hass, entry)
+    runtime.provider.languages = AsyncMock(return_value={"de": "DE"})
+    runtime.catalog.scan = Mock(
+        return_value=[
+            {"domain": "new", "name": "New", "missing": 1, "exists": False},
+            {"domain": "partial", "name": "Partial", "missing": 1, "exists": True},
+        ]
+    )
+    await runtime.refresh()
+    assert runtime.alerts == ({"new_de"} if notify else set())
+    assert runtime.issues == ({"partial_de"} if repair else set())
+    assert bool(ir.async_get(hass).async_get_issue(DOMAIN, "partial_de")) == repair
+    if not notify and not repair:
+        runtime.provider.languages.assert_not_called()
+        runtime.catalog.scan.assert_not_called()
+    runtime.cleanup()
+    assert not ir.async_get(hass).async_get_issue(DOMAIN, "partial_de")
+
+
+async def test_manual_translation_when_automatic_checks_are_disabled(
+    hass, frontend_ready
+):
+    from unittest.mock import AsyncMock
+
+    folder = frontend_ready / "custom_components/example/translations"
+    folder.mkdir(parents=True)
+    (folder.parent / "manifest.json").write_text('{"name":"Example"}')
+    (folder / "en.json").write_text('{"one":"Open"}')
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"deepl_entry": "account"},
+        options={"automatic_checks": False},
+    )
+    runtime = Runtime(hass, entry)
+    runtime.provider.languages = AsyncMock()
+    runtime.provider.translate = AsyncMock(return_value=["Öffnen"])
+    items = await dispatch(runtime, {"action": "list", "language": "de"})
+    assert items[0]["domain"] == "example"
+    detail = await dispatch(
+        runtime, {"action": "detail", "domain": "example", "language": "de"}
+    )
+    await dispatch(
+        runtime,
+        {
+            "action": "translate",
+            "domain": "example",
+            "language": "de",
+            "revision": detail["revision"],
+            "paths": [["one"]],
+        },
+    )
+    assert "Öffnen" in (folder / "de.json").read_text()
+    runtime.provider.languages.assert_not_called()
+
+
+async def test_settings_pages_preserve_each_other_and_work_offline(
+    hass, frontend_ready
+):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"deepl_entry": "account"},
+        options={
+            "automatic_checks": False,
+            "language": "de",
+            "protected_words": "ACME",
+            "scan_interval_hours": 48,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    manager = hass.config_entries.options
+    for step, changes in [
+        ("notifications", {"notify_missing": False, "repair_missing": False}),
+        ("automation", {"automatic_checks": False, "watch_hacs": False}),
+    ]:
+        flow = await manager.async_init(entry.entry_id)
+        form = await manager.async_configure(flow["flow_id"], {"next_step_id": step})
+        assert form["type"] == "form"
+        result = await manager.async_configure(flow["flow_id"], changes)
+        assert result["type"] == "create_entry"
+        await hass.async_block_till_done()
+    assert entry.options["language"] == "de"
+    assert entry.options["protected_words"] == "ACME"
+    assert entry.options["scan_interval_hours"] == 48
+    assert not entry.options["notify_missing"]
+    assert not entry.options["repair_missing"]
+    assert not entry.options["watch_hacs"]
+    assert not entry.options["automatic_checks"]

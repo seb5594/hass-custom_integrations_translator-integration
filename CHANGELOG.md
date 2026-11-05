@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.11.05.4
+
+- Support Core 2023.7 and newer through compatible schema, frontend, runtime, options and event APIs, with historical Core tests.
+
+- Add an automatic-check master switch and individual startup, HACS, Marketplace, component-load and language-change switches.
+- Separately control missing-language notifications and missing-phrase Repairs issues. Settings pages preserve each other and work without contacting DeepL.
+- Change the license to MIT, copyright seb5594 (Sebastian Schmidt).
+
 ## 2026.11.05.3
 
 - Offer a native discovery card with explicit confirmation through DeepL Translator 1.0.0b3 or newer after installation or startup. Existing, disabled and ignored entries are respected.

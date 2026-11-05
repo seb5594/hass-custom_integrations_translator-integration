@@ -2,12 +2,12 @@
 
 import base64
 
-import probatio as vol
 from homeassistant.components import websocket_api
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.generated.languages import LANGUAGES
 
 from .catalog import CatalogError, initial_path, read
+from .compat import vol
 from .const import DOMAIN
 
 

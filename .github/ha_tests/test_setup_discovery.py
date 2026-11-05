@@ -62,5 +62,5 @@ async def test_discovery_respects_existing_choices(
     entry.add_to_hass(hass)
     result = await discover(hass)
     assert result["type"] == "abort"
-    assert result["reason"] == "single_instance_allowed"
+    assert result["reason"] in ("single_instance_allowed", "already_configured")
     assert hass.config_entries.async_entries(DOMAIN) == [entry]
