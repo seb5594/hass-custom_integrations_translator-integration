@@ -1,10 +1,10 @@
 """Review retained files even after the config entry has been removed."""
 
-import probatio as vol
 from homeassistant.components.repairs import RepairsFlow
 from homeassistant.helpers import issue_registry as ir
 
 from .catalog import Catalog
+from .compat import vol
 from .const import DOMAIN
 from .runtime import file_lock
 
@@ -39,7 +39,7 @@ class RetainedFilesFlow(RepairsFlow):
                         async with file_lock(self.hass):
                             await self.hass.async_add_executor_job(catalog.restore_all)
                 # The repairs flow manager clears the issue on successful completion.
-                return self.async_create_entry(data={})
+                return self.async_create_entry(title="", data={})
             except (OSError, ValueError) as err:
                 error = str(err)
         return self.async_show_form(

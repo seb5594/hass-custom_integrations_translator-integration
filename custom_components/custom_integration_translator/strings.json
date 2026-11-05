@@ -29,7 +29,9 @@
         "title": "Manage translations",
         "menu_options": {
           "preferences": "Language and sidebar",
-          "deactivate": "Disable translator…"
+          "deactivate": "Disable translator…",
+          "automation": "Automatic checks",
+          "notifications": "Notifications"
         }
       },
       "preferences": {
@@ -38,11 +40,7 @@
         "data": {
           "language": "Default target language",
           "sidebar": "Show translations in the sidebar",
-          "protected_words": "Protected words, one per line",
-          "scan_interval_hours": "Additional check interval in hours"
-        },
-        "data_description": {
-          "scan_interval_hours": "Default 168 hours (once a week). Set to 0 to disable the periodic check. Checks after installations and at startup stay enabled."
+          "protected_words": "Protected words, one per line"
         }
       },
       "deactivate": {
@@ -50,6 +48,30 @@
         "description": "By default all translations are kept. Select the option to first restore originals and remove files created solely by the translator. {detail}",
         "data": {
           "undo": "Undo translations before disabling"
+        }
+      },
+      "automation": {
+        "title": "Automatic checks",
+        "description": "Turn off automatic checks to use the workspace manually only. Individual trigger choices and the interval are kept for later. These settings do not change translation files.",
+        "data": {
+          "automatic_checks": "Enable automatic checks",
+          "scan_startup": "Check at startup",
+          "watch_hacs": "Check after HACS installations and removals",
+          "watch_marketplace": "Check after Marketplace installations and removals",
+          "scan_loaded": "Check when a custom integration loads",
+          "scan_language": "Check when the system language changes",
+          "scan_interval_hours": "Additional check interval in hours"
+        },
+        "data_description": {
+          "scan_interval_hours": "168 hours = once a week; 0 disables the periodic check. The selected event triggers stay active while automatic checks are enabled."
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Choose which translation suggestions appear. Existing suggestions of a disabled type are removed when you save. The recovery dialog for retained translations remains available.",
+        "data": {
+          "notify_missing": "Notify about missing language files",
+          "repair_missing": "Create Repairs issues for missing phrases"
         }
       }
     },

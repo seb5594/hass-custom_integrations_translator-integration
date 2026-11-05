@@ -3,10 +3,14 @@
 import asyncio
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import (
+    EVENT_COMPONENT_LOADED,
+    EVENT_CORE_CONFIG_UPDATE,
+    EVENT_HOMEASSISTANT_STARTED,
+)
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
@@ -34,7 +38,7 @@ def discovery(hass):
 
 async def advance(hass, seconds):
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=seconds))
-    await hass.async_block_till_done(wait_background_tasks=True)
+    await hass.async_block_till_done()
 
 
 @pytest.mark.parametrize(
@@ -128,3 +132,61 @@ async def test_discovery_waits_for_translation_lock(hass):
         assert not task.done()
     await task
     runtime.catalog.scan.assert_called_once()
+
+
+async def test_master_switch_prevents_all_background_work(hass, discovery):
+    runtime, cleanups = discovery
+    runtime.entry.options = {"automatic_checks": False, "scan_interval_hours": 1}
+    monitor(runtime)
+    assert not cleanups
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+    hass.bus.async_fire(EVENT_CORE_CONFIG_UPDATE, {"language": "de"})
+    async_dispatcher_send(hass, "hacs_dispatch_repository", {"action": "install"})
+    async_dispatcher_send(
+        hass, "marketplace_repository_install_progress", {"progress": False}
+    )
+    await advance(hass, 8 * 24 * 3600)
+    runtime.refresh.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "option,event,data,dispatcher",
+    [
+        ("scan_startup", EVENT_HOMEASSISTANT_STARTED, {}, False),
+        ("watch_hacs", "hacs_dispatch_repository", {"action": "install"}, True),
+        (
+            "watch_marketplace",
+            "marketplace_repository_install_progress",
+            {"progress": False},
+            True,
+        ),
+        ("scan_loaded", EVENT_COMPONENT_LOADED, {"component": "example"}, False),
+        ("scan_language", EVENT_CORE_CONFIG_UPDATE, {"language": "de"}, False),
+    ],
+)
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_trigger_switches(
+    hass, discovery, option, event, data, dispatcher, enabled
+):
+    runtime, _ = discovery
+    runtime.entry.options = {
+        "scan_startup": False,
+        "watch_hacs": False,
+        "watch_marketplace": False,
+        "scan_loaded": False,
+        "scan_language": False,
+        "scan_interval_hours": 0,
+        option: enabled,
+    }
+    monitor(runtime)
+    with patch(
+        "custom_components.custom_integration_translator.discovery.async_get_integration",
+        new=AsyncMock(return_value=SimpleNamespace(is_built_in=False)),
+    ):
+        if dispatcher:
+            async_dispatcher_send(hass, event, data)
+        else:
+            hass.bus.async_fire(event, data)
+        await hass.async_block_till_done()
+        await advance(hass, 11)
+    assert runtime.refresh.await_count == int(enabled)
