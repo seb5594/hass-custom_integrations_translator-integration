@@ -88,6 +88,19 @@ async def test_guided_translation_and_recovery(hass, frontend_ready):
     entry = result["result"]
     assert entry.state is ConfigEntryState.LOADED
     runtime = hass.data[DOMAIN]
+    assert entry.options["overview_sensor"]
+    assert not entry.options["notify_missing"]
+    assert not entry.options["repair_missing"]
+    await runtime.refresh()
+    assert not runtime.alerts and not runtime.issues
+    assert runtime.overview["integrations"] == 1
+    sensor = hass.states.get(hass.states.async_entity_ids("sensor")[0])
+    assert sensor.state == "1"
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, "notify_missing": True, "repair_missing": True}
+    )
+    await hass.async_block_till_done()
+    runtime = hass.data[DOMAIN]
     assert hass.data[frontend.DATA_PANELS][PANEL].sidebar_title is None
     assert hass.states.async_entity_ids("button")
     assert hass.services.has_service(DOMAIN, "open_workspace")
@@ -377,3 +390,55 @@ async def test_targeted_refresh_reconciles_all_notices_after_language_change(
     assert not runtime.alerts
     assert not runtime.issues
     runtime.cleanup()
+
+
+async def test_quiet_overview_updates_without_notifications_or_extra_polling(
+    hass, frontend_ready
+):
+    from unittest.mock import Mock
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"deepl_entry": "account"},
+        options={
+            "overview_sensor": True,
+            "notify_missing": False,
+            "repair_missing": False,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    async def languages(call):
+        return {"languages": [{"code": "DE"}]}
+
+    hass.services.async_register(
+        DEEPL, "get_languages", languages, supports_response=SupportsResponse.ONLY
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    runtime = hass.data[DOMAIN]
+    runtime.catalog.scan = Mock(
+        return_value=[
+            {"domain": "new", "missing": 3, "count": 3, "exists": False},
+            {"domain": "partial", "missing": 2, "count": 4, "exists": True},
+        ]
+    )
+    with patch(
+        "custom_components.custom_integration_translator.runtime.persistent_notification.async_create"
+    ) as notify:
+        await runtime.refresh()
+        assert not runtime.alerts and not runtime.issues
+        notify.assert_not_called()
+    sensor_id = hass.states.async_entity_ids("sensor")[0]
+    assert hass.states.get(sensor_id).state == "2"
+    assert hass.states.get(sensor_id).attributes["missing_phrases"] == 5
+    runtime.catalog.summary = Mock(
+        return_value={"domain": "new", "missing": 0, "count": 3, "exists": True}
+    )
+    await runtime.refresh(domain="new")
+    assert hass.states.get(sensor_id).state == "1"
+    assert hass.states.get(sensor_id).attributes["missing_phrases"] == 2
+    runtime.provider.languages = AsyncMock(side_effect=HomeAssistantError("offline"))
+    await runtime.refresh()
+    assert hass.states.get(sensor_id).state == "unavailable"
+    await hass.config_entries.async_unload(entry.entry_id)

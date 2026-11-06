@@ -68,10 +68,11 @@
       },
       "notifications": {
         "title": "Notifications",
-        "description": "Choose which translation suggestions appear. Existing suggestions of a disabled type are removed when you save. The recovery dialog for retained translations remains available.",
+        "description": "New setups show missing translations quietly in the overview sensor. Individual notifications and Repairs issues can be enabled here. Saving removes disabled suggestions; recovery dialogs remain available.",
         "data": {
           "notify_missing": "Notify about missing language files",
-          "repair_missing": "Create Repairs issues for missing phrases"
+          "repair_missing": "Create Repairs issues for missing phrases",
+          "overview_sensor": "Enable overview sensor"
         }
       }
     },
@@ -87,6 +88,11 @@
     "button": {
       "open_workspace": {
         "name": "Open translations"
+      }
+    },
+    "sensor": {
+      "missing_integrations": {
+        "name": "Integrations with missing translations"
       }
     }
   },

@@ -7,13 +7,16 @@ from urllib.parse import urlencode
 from homeassistant.components import persistent_notification
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .catalog import Catalog, CatalogError
 from .const import DOMAIN, NAME, PANEL
 from .discovery import (
     CONF_AUTOMATIC_CHECKS,
     CONF_NOTIFY_MISSING,
+    CONF_OVERVIEW_SENSOR,
     CONF_REPAIR_MISSING,
+    background_enabled,
     monitor,
 )
 from .provider import DeepLProvider
@@ -37,6 +40,8 @@ class Runtime:
         self.alerts = set()
         self.issues = set()
         self.notice_language = None
+        self.overview = None
+        self.overview_items = {}
 
     @property
     def language(self):
@@ -85,10 +90,7 @@ class Runtime:
     async def refresh(self, now=None, *, domain=None):
         if not self.active or not self.entry.options.get(CONF_AUTOMATIC_CHECKS, True):
             return
-        if not any(
-            self.entry.options.get(key, True)
-            for key in (CONF_NOTIFY_MISSING, CONF_REPAIR_MISSING)
-        ):
+        if not background_enabled(self.entry.options):
             self.cleanup()
             return
         async with self.lock:
@@ -98,7 +100,9 @@ class Runtime:
                 language = self.language
                 # A language change invalidates every previous suggestion. A local
                 # write otherwise only needs to refresh the affected integration.
-                if self.notice_language not in (None, language):
+                if self.notice_language not in (None, language) or (
+                    self.entry.options.get(CONF_OVERVIEW_SENSOR, False) and self.overview is None
+                ):
                     domain = None
                 supported = await self.provider.languages()
                 if language not in supported:
@@ -109,9 +113,32 @@ class Runtime:
                     items = await self.io(self.catalog.scan, language)
             except (HomeAssistantError, OSError, ValueError) as err:
                 _LOGGER.debug("Discovery postponed: %s", err)
+                self.overview = None
+                async_dispatcher_send(self.hass, f"{DOMAIN}_overview")
                 return
             if not self.active:
                 return
+            if self.entry.options.get(CONF_OVERVIEW_SENSOR, False):
+                if domain is None:
+                    self.overview_items.clear()
+                self.overview_items.update({item["domain"]: item for item in items})
+                values = self.overview_items.values()
+                self.overview = (
+                    {
+                        "language": language,
+                        "integrations": sum(bool(item["missing"]) for item in values),
+                        "missing_phrases": sum(item["missing"] for item in values),
+                        "missing_languages": sum(
+                            bool(item["missing"]) and not item.get("exists", False)
+                            for item in values
+                        ),
+                        "conflicts": sum(bool(item.get("conflict")) for item in values),
+                        "scan_errors": sum(bool(item.get("error")) for item in values),
+                    }
+                    if language in supported
+                    else None
+                )
+                async_dispatcher_send(self.hass, f"{DOMAIN}_overview")
             key = f"{domain}_{language}"
             alerts = self.alerts - {key} if domain is not None else set()
             issues = self.issues - {key} if domain is not None else set()
@@ -169,3 +196,6 @@ class Runtime:
         self.alerts.clear()
         self.issues.clear()
         self.notice_language = None
+        self.overview = None
+        self.overview_items.clear()
+        async_dispatcher_send(self.hass, f"{DOMAIN}_overview")

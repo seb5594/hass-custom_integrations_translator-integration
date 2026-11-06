@@ -52,3 +52,33 @@ async def test_empty_selection_does_not_contact_provider(hass):
     provider.call = AsyncMock()
     assert await provider.translate([], "en", "de", []) == []
     provider.call.assert_not_called()
+
+
+async def test_estimate_counts_actual_masked_unicode_payload(hass):
+    from custom_components.custom_integration_translator.provider import estimate
+
+    provider = DeepLProvider(hass, "account")
+    sent = []
+
+    async def call(service, fields):
+        if service == "get_languages":
+            return {"languages": [{"code": "DE"}]}
+        sent.extend(fields["text"])
+        return {"translations": [{"text": text} for text in fields["text"]]}
+
+    provider.call = AsyncMock(side_effect=call)
+    phrases = ["Open ACME {name} 😀 é", "Open ACME {name} 😀 é", "Close"]
+    planned = estimate(phrases, ["ACME"])
+    assert planned["selected_phrases"] == 3
+    assert planned["unique_phrases"] == 2
+    await provider.translate(phrases, "en", "de", ["ACME"])
+    assert planned["characters"] == sum(map(len, sent))
+    assert planned["characters"] > planned["source_characters"]
+    assert estimate([], [])["characters"] == 0
+
+
+async def test_usage_without_new_deepl_service_is_explicitly_unknown(hass):
+    assert await DeepLProvider(hass, "account").usage() == {
+        "available": False,
+        "reason": "update_required",
+    }
