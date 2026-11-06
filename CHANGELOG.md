@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.11.06.1
+
+- Show missing phrases relative to the total, with a distinct label when every phrase is missing.
+- Start new setups with a quiet overview sensor instead of individual notifications and Repairs issues; keep existing choices and provide separate switches. Reuse event-driven checks without extra polling.
+- Prefill the integration friendly name as a protected term and preserve workspace edits per integration.
+- Preview deduplicated word and character counts including protection markers, and show the DeepL account balance and projected remainder through DeepL Translator 1.0.0b5+. Distinguish unlimited, unavailable and OAuth accounts.
+- Document evaluated AI translation options and the proposed optional AI Task adapter.
+
 ## 2026.11.05.8
 
 - After translating or restoring a file, refresh suggestions only for the edited integration instead of scanning every custom integration. Preserve unrelated notifications and Repairs issues.

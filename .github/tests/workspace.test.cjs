@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const {test} = require('node:test');
 let Workspace;
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../custom_components/custom_integration_translator/frontend/workspace.js'), 'utf8'), {
+  setTimeout() { return 0; }, clearTimeout() {},
   HTMLElement: class { attachShadow() { this.shadowRoot = {addEventListener() {}}; } },
   customElements: {get() {}, define(name, component) { Workspace = component; }},
 });
@@ -90,8 +91,43 @@ test('phrase content remains escaped and an empty source has no pages to navigat
   assert.doesNotMatch(html(c), /<img/);
   assert.match(html(c), /&lt;img/);
   c.item.rows = [];
+  c.selected.clear();
   c.updateRows();
   assert.match(html(c), /No phrases found/);
   assert.equal(c.root.querySelector("[data-page='-1']").disabled, true);
   assert.equal(c.root.querySelector("[data-page='1']").disabled, true);
+});
+
+test('overview distinguishes partial and entirely missing translations', () => {
+  const c = workspace();
+  c.items = [{domain:'partial',name:'Partial',missing:2,count:5}, {domain:'all',name:'All',missing:2,count:2}];
+  assert.match(c.listView(), /2 missing of 5/);
+  assert.match(c.listView(), /All 2 missing/);
+  c.ha.language = 'de';
+  assert.match(c.listView(), /2 fehlen von 5/);
+  assert.match(c.listView(), /Alle 2 fehlen/);
+});
+test('friendly names are protected by default and per-integration edits survive reopening', async () => {
+  const c = workspace();
+  c.settings.terms = 'ACME';
+  c.call = async action => action === 'detail' ? {domain:'example',name:'Friendly Name',rows:[]} : {available:false,reason:'unsupported'};
+  await c.detail('example');
+  assert.equal(c.terms, 'ACME\nFriendly Name');
+  c.termPreferences.set('example', 'Personal choice');
+  await c.detail('example');
+  assert.equal(c.terms, 'Personal choice');
+});
+test('quota forecast distinguishes finite, unlimited and unavailable accounts', () => {
+  const c = workspace();
+  c.estimate = {selected_phrases:2,unique_phrases:1,words:3,characters:50};
+  c.quota = {available:true,character_count:900,character_limit:1000,characters_remaining:100};
+  c.updateUsage();
+  assert.match(c.root.querySelector('#usage').textContent, /after this selection: 50/);
+  c.quota.unlimited = true;
+  c.updateUsage();
+  assert.match(c.root.querySelector('#usage').textContent, /no fixed character limit/);
+  assert.doesNotMatch(c.root.querySelector('#usage').textContent, /after this selection/);
+  c.quota = {available:false,reason:'unsupported'};
+  c.updateUsage();
+  assert.match(c.root.querySelector('#usage').textContent, /Remaining usage is unknown/);
 });

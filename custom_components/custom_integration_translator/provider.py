@@ -26,6 +26,30 @@ def mask_phrase(pattern, prefix, phrase):
     return pattern.sub(mask, phrase), mapping
 
 
+def protection_pattern(terms):
+    terms = sorted(
+        {term.strip() for term in terms if term.strip()}, key=len, reverse=True
+    )
+    return re.compile("|".join([_FORMAT, *map(re.escape, terms)]), re.DOTALL)
+
+
+def estimate(phrases, terms):
+    """Count the same deduplicated, masked Unicode code points sent for translation."""
+    unique = list(dict.fromkeys(phrases))
+    pattern = protection_pattern(terms)
+    # UUID values vary; their lengths and per-phrase marker indices do not.
+    characters = sum(
+        len(mask_phrase(pattern, "CIT" + "0" * 32 + "X", text)[0]) for text in unique
+    )
+    return {
+        "selected_phrases": len(phrases),
+        "unique_phrases": len(unique),
+        "words": sum(len(text.split()) for text in unique),
+        "source_characters": sum(len(text) for text in unique),
+        "characters": characters,
+    }
+
+
 class DeepLProvider:
     def __init__(self, hass, entry_id):
         self.hass = hass
@@ -51,6 +75,14 @@ class DeepLProvider:
             if (code := _ALIASES.get(key, key.upper())) in supported
         }
 
+    async def usage(self):
+        if not self.hass.services.has_service(DEEPL, "get_usage"):
+            return {"available": False, "reason": "update_required"}
+        try:
+            return await self.call("get_usage", {"refresh": True})
+        except HomeAssistantError:
+            return {"available": False, "reason": "unavailable"}
+
     async def translate(self, phrases, source, target, terms):
         if not phrases:
             return []
@@ -61,10 +93,7 @@ class DeepLProvider:
             raise HomeAssistantError(
                 "DeepL does not support the selected target language"
             )
-        terms = sorted(
-            {term.strip() for term in terms if term.strip()}, key=len, reverse=True
-        )
-        pattern = re.compile("|".join([_FORMAT, *map(re.escape, terms)]), re.DOTALL)
+        pattern = protection_pattern(terms)
         prefix = "CIT" + uuid4().hex + "X"
         token_pattern = re.compile(re.escape(prefix) + r"\d+X")
         results = []

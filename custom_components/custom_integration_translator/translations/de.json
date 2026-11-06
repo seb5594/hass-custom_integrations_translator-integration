@@ -68,10 +68,11 @@
       },
       "notifications": {
         "title": "Hinweise",
-        "description": "Wähle, welche Übersetzungshinweise erscheinen. Bereits vorhandene Hinweise der abgeschalteten Art werden beim Speichern entfernt. Der Wiederherstellungsdialog für beibehaltene Übersetzungen bleibt verfügbar.",
+        "description": "Neue Einrichtungen zeigen fehlende Übersetzungen dezent im Übersichtssensor. Einzelne Benachrichtigungen und Reparaturhinweise können hier zusätzlich aktiviert werden. Deaktivierte Hinweise werden beim Speichern entfernt; der Wiederherstellungsdialog bleibt verfügbar.",
         "data": {
           "notify_missing": "Auf fehlende Sprachdateien hinweisen",
-          "repair_missing": "Reparatureinträge für fehlende Phrasen erstellen"
+          "repair_missing": "Reparatureinträge für fehlende Phrasen erstellen",
+          "overview_sensor": "Übersichtssensor aktivieren"
         }
       }
     },
@@ -87,6 +88,11 @@
     "button": {
       "open_workspace": {
         "name": "Übersetzungen öffnen"
+      }
+    },
+    "sensor": {
+      "missing_integrations": {
+        "name": "Integrationen mit fehlenden Übersetzungen"
       }
     }
   },
