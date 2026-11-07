@@ -42,6 +42,9 @@ async def test_requires_deepl(hass, frontend_ready):
         DOMAIN, context={"source": "user"}
     )
     assert result["reason"] == "deepl_required"
+    assert result["description_placeholders"]["deepl_url"] == (
+        "https://github.com/seb5594/hass-deepl_translator-integration"
+    )
 
 
 async def test_guided_translation_and_recovery(hass, frontend_ready):

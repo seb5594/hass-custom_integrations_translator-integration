@@ -15,7 +15,7 @@
       }
     },
     "abort": {
-      "deepl_required": "Set up [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) first, then try again.",
+      "deepl_required": "Set up [DeepL Translator]({deepl_url}) first, then try again.",
       "already_configured": "The translator is already configured."
     },
     "flow_title": "{name}",
@@ -109,7 +109,6 @@
     },
     "retained": {
       "title": "Review retained translations",
-      "description": "The translator was disabled or removed. {count} managed language files were kept. Confirm that choice or undo the changes.",
       "fix_flow": {
         "step": {
           "review": {

@@ -49,7 +49,12 @@ class TranslatorFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if entry.state is config_entries.ConfigEntryState.LOADED
         }
         if not entries:
-            return self.async_abort(reason="deepl_required")
+            return self.async_abort(
+                reason="deepl_required",
+                description_placeholders={
+                    "deepl_url": "https://github.com/seb5594/hass-deepl_translator-integration"
+                },
+            )
         if user_input is not None and user_input.get("deepl_entry") in entries:
             return self.async_create_entry(
                 title=NAME,

@@ -15,7 +15,7 @@
       }
     },
     "abort": {
-      "deepl_required": "Richte zuerst [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) ein und starte die Einrichtung erneut.",
+      "deepl_required": "Richte zuerst [DeepL Translator]({deepl_url}) ein und starte die Einrichtung erneut.",
       "already_configured": "Der Translator ist bereits eingerichtet."
     },
     "flow_title": "{name}",
@@ -109,7 +109,6 @@
     },
     "retained": {
       "title": "Gespeicherte Übersetzungen prüfen",
-      "description": "Der Translator wurde deaktiviert oder entfernt. {count} verwaltete Sprachdateien wurden beibehalten. Hier kannst du diese Entscheidung bestätigen oder die Änderungen rückgängig machen.",
       "fix_flow": {
         "step": {
           "review": {
