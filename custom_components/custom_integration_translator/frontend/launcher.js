@@ -10,7 +10,7 @@ async function listen() {
   await root.hass.connection.subscribeEvents(async event => {
     if (document.visibilityState !== "visible" || event.data.user_id !== root.hass.user.id ||
         document.querySelector("dialog[data-cit]")) return;
-    await import("./workspace.js?v=2026.11.05.8");
+    await import("./workspace.js?v=2026.11.06.1");
     const dialog = document.createElement("dialog");
     dialog.dataset.cit = "";
     dialog.ariaLabel = "Custom Integration Translator";

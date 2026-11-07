@@ -22,6 +22,7 @@ CONF_SCAN_LOADED = "scan_loaded"
 CONF_SCAN_LANGUAGE = "scan_language"
 CONF_NOTIFY_MISSING = "notify_missing"
 CONF_REPAIR_MISSING = "repair_missing"
+CONF_OVERVIEW_SENSOR = "overview_sensor"
 TRIGGER_OPTIONS = (
     CONF_AUTOMATIC_CHECKS,
     CONF_SCAN_STARTUP,
@@ -30,10 +31,16 @@ TRIGGER_OPTIONS = (
     CONF_SCAN_LOADED,
     CONF_SCAN_LANGUAGE,
 )
-NOTICE_OPTIONS = (CONF_NOTIFY_MISSING, CONF_REPAIR_MISSING)
+NOTICE_OPTIONS = (CONF_NOTIFY_MISSING, CONF_REPAIR_MISSING, CONF_OVERVIEW_SENSOR)
 DEFAULT_SCAN_INTERVAL = 168
 EVENT_COOLDOWN = 10
 _LOGGER = logging.getLogger(__name__)
+
+
+def background_enabled(options):
+    return options.get(CONF_OVERVIEW_SENSOR, False) or any(
+        options.get(key, True) for key in (CONF_NOTIFY_MISSING, CONF_REPAIR_MISSING)
+    )
 
 
 def monitor(runtime):
@@ -41,7 +48,7 @@ def monitor(runtime):
     hass, entry = runtime.hass, runtime.entry
     if not entry.options.get(CONF_AUTOMATIC_CHECKS, True):
         return
-    if not any(entry.options.get(key, True) for key in NOTICE_OPTIONS):
+    if not background_enabled(entry.options):
         return
     schedule = schedule_refresh(hass, entry, _LOGGER, runtime.refresh, EVENT_COOLDOWN)
 

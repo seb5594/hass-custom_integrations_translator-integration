@@ -8,6 +8,7 @@ from homeassistant.helpers import selector
 from .compat import vol
 from .const import DEEPL, DOMAIN, NAME
 from .discovery import (
+    CONF_OVERVIEW_SENSOR,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     NOTICE_OPTIONS,
@@ -50,7 +51,15 @@ class TranslatorFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not entries:
             return self.async_abort(reason="deepl_required")
         if user_input is not None and user_input.get("deepl_entry") in entries:
-            return self.async_create_entry(title=NAME, data=user_input)
+            return self.async_create_entry(
+                title=NAME,
+                data=user_input,
+                options={
+                    "notify_missing": False,
+                    "repair_missing": False,
+                    CONF_OVERVIEW_SENSOR: True,
+                },
+            )
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -126,7 +135,10 @@ class TranslatorOptions(config_entries.OptionsFlow):
             )
         options = self.entry.options
         fields = {
-            vol.Required(key, default=options.get(key, True)): bool for key in keys
+            vol.Required(
+                key, default=options.get(key, key != CONF_OVERVIEW_SENSOR)
+            ): bool
+            for key in keys
         }
         if step == "automation":
             fields[

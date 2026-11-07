@@ -9,19 +9,30 @@ from homeassistant.generated.languages import LANGUAGES
 from .catalog import CatalogError, initial_path, read
 from .compat import vol
 from .const import DOMAIN
+from .provider import estimate
 
 
 @websocket_api.websocket_command(
     {
         "type": f"{DOMAIN}/workspace",
         vol.Required("action"): vol.In(
-            ["settings", "list", "detail", "translate", "restore", "original"]
+            [
+                "settings",
+                "list",
+                "detail",
+                "translate",
+                "restore",
+                "original",
+                "estimate",
+                "usage",
+            ]
         ),
         vol.Optional("domain"): str,
         vol.Optional("language"): vol.In(LANGUAGES),
         vol.Optional("revision"): str,
         vol.Optional("paths"): [[str]],
         vol.Optional("terms"): [str],
+        vol.Optional("texts"): [str],
     }
 )
 @websocket_api.require_admin
@@ -44,6 +55,10 @@ async def workspace(hass, connection, msg):
 async def dispatch(runtime, msg):
     catalog = runtime.catalog
     action = msg["action"]
+    if action == "estimate":
+        return await runtime.io(estimate, msg["texts"], msg.get("terms", []))
+    if action == "usage":
+        return await runtime.provider.usage()
     if action == "settings":
         problem = None
         try:

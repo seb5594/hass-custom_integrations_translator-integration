@@ -16,6 +16,7 @@ select { margin:.25rem .5rem; } .tools { flex-wrap:wrap; } ul { list-style:none;
 .terms { display:block; margin-top:1.5rem; } textarea { display:block; width:100%; margin-top:.5rem; }
 .search { display:block; margin-top:1rem; } input[type=search] { display:block; width:100%; height:auto; min-height:44px; margin-top:.5rem; padding:.55rem .85rem; font:inherit; border:1px solid var(--divider-color); border-radius:var(--ha-card-border-radius,12px); color:inherit; background:var(--card-background-color); }
 nav.tools { margin:1rem 0; } #page-status { padding:0; border:0; }
+#usage { white-space:pre-line; } details { margin:.7rem 0; } summary { cursor:pointer; min-height:44px; padding:.6rem 0; }
 [role=alert] { color:var(--error-color); } [role=status] { padding:.7rem; border-inline-start:3px solid var(--primary-color); }
 footer { border-top:1px solid var(--divider-color); padding:1rem; text-align:center; font-size:.9rem; } footer a { display:inline-block; color:var(--link-text-color,var(--primary-color)); margin:.4rem; }
 @media(max-width:600px) { .phrase { grid-template-columns:auto 1fr; } .phrase span:last-child { grid-column:2; } header { padding:.5rem; } }

@@ -12,11 +12,18 @@ class TranslatorWorkspace extends HTMLElement {
     this.selected = new Set();
     this.search = "";
     this.page = 0;
+    this.termPreferences = new Map();
+    this.estimateId = 0;
+    this.usageId = 0;
     this.root = this.shadowRoot;
     this.root.addEventListener("click", e => this.click(e));
     this.root.addEventListener("change", e => this.change(e));
     this.root.addEventListener("input", e => {
-      if (e.target.id === "terms") this.terms = e.target.value;
+      if (e.target.id === "terms") {
+        this.terms = e.target.value;
+        if (this.item) this.termPreferences.set(this.item.domain, this.terms);
+        this.queueEstimate();
+      }
       if (e.target.id === "search") {
         this.search = e.target.value;
         this.page = 0;
@@ -30,6 +37,11 @@ class TranslatorWorkspace extends HTMLElement {
     if (this.isConnected) this.start();
   }
   connectedCallback() { this.start(); }
+  disconnectedCallback() {
+    clearTimeout(this.estimateTimer);
+    this.estimateId++;
+    this.usageId++;
+  }
   start() {
     if (!this.ha || this.started) return;
     this.started = true;
@@ -69,13 +81,86 @@ class TranslatorWorkspace extends HTMLElement {
   }
   async list() {
     this.item = null;
+    this.estimateKey = null;
+    clearTimeout(this.estimateTimer);
+    this.estimateId++;
     this.items = await this.call("list", {language:this.lang});
   }
   async detail(domain) {
     this.item = await this.call("detail", {language:this.lang, domain});
+    this.terms = this.termPreferences.get(domain) ?? [...new Set([
+      ...(this.settings.terms || "").split("\n").map(term => term.trim()).filter(Boolean), this.item.name,
+    ])].join("\n");
     this.search = "";
     this.page = 0;
     this.select("missing");
+    this.loadUsage();
+  }
+  async loadUsage() {
+    const id = ++this.usageId;
+    this.quota = null;
+    this.quotaLoading = true;
+    this.updateUsage();
+    try {
+      const quota = await this.call("usage");
+      if (id === this.usageId) this.quota = quota;
+    } catch {
+      if (id === this.usageId) this.quota = {available:false, reason:"unavailable"};
+    } finally {
+      if (id === this.usageId) { this.quotaLoading = false; this.updateUsage(); }
+    }
+  }
+  queueEstimate() {
+    if (!this.item || this.busy) return;
+    const texts = [...this.selected].map(index => this.item.rows[index].source);
+    const terms = this.terms.split("\n");
+    const key = JSON.stringify([texts, terms]);
+    if (key === this.estimateKey) { this.updateUsage(); return; }
+    this.estimateKey = key;
+    clearTimeout(this.estimateTimer);
+    const id = ++this.estimateId;
+    this.estimate = null;
+    if (!texts.length) {
+      this.estimate = {selected_phrases:0, unique_phrases:0, words:0, characters:0};
+      this.updateUsage();
+      return;
+    }
+    this.updateUsage();
+    this.estimateTimer = setTimeout(async () => {
+      try {
+        const estimate = await this.call("estimate", {texts, terms});
+        if (id === this.estimateId) this.estimate = estimate;
+      } catch {
+        if (id === this.estimateId) this.estimate = {error:true};
+      }
+      if (id === this.estimateId) this.updateUsage();
+    }, 300);
+  }
+  updateUsage() {
+    const box = this.root.querySelector("#usage");
+    if (!box) return;
+    const t = this.t.bind(this), estimate = this.estimate, quota = this.quota;
+    let text = !estimate ? t("Auswahl wird berechnet …", "Calculating selection …") : estimate.error
+      ? t("Verbrauchsschätzung derzeit nicht verfügbar.", "Usage estimate is currently unavailable.")
+      : t(`${estimate.selected_phrases} ${estimate.selected_phrases === 1 ? "Phrase" : "Phrasen"} · ${estimate.unique_phrases} ${estimate.unique_phrases === 1 ? "unterschiedlicher Text" : "unterschiedliche Texte"} · ca. ${estimate.words} Wörter · geschätzt ${estimate.characters} übertragene Zeichen.`,
+          `${estimate.selected_phrases} ${estimate.selected_phrases === 1 ? "phrase" : "phrases"} · ${estimate.unique_phrases} unique ${estimate.unique_phrases === 1 ? "text" : "texts"} · about ${estimate.words} words · estimated ${estimate.characters} transmitted characters.`);
+    if (this.quotaLoading) text += " " + t("Kontostand wird abgefragt …", "Checking account usage …");
+    else if (quota?.available) {
+      text += "\n" + (quota.unlimited
+        ? t(`DeepL meldet ${quota.character_count} verbrauchte Zeichen und keine feste Zeichengrenze.`, `DeepL reports ${quota.character_count} used characters and no fixed character limit.`)
+        : t(`DeepL-Kontostand: ${quota.characters_remaining} von ${quota.character_limit} Zeichen übrig.`, `DeepL account: ${quota.characters_remaining} of ${quota.character_limit} characters remaining.`));
+      if (!quota.unlimited && estimate && !estimate.error) {
+        const remaining = quota.characters_remaining - estimate.characters;
+        text += "\n" + (remaining < 0
+          ? t(`Die Auswahl überschreitet den gemeldeten Rest um voraussichtlich ${-remaining} Zeichen.`, `This selection is estimated to exceed the reported balance by ${-remaining} characters.`)
+          : t(`Nach dieser Auswahl voraussichtlich ${remaining} Zeichen übrig.`, `Estimated remaining after this selection: ${remaining} characters.`));
+      }
+    } else if (quota?.reason === "update_required") text += " " + t("Für den Kontostand bitte DeepL Translator auf 2026.11.06.1 oder neuer aktualisieren.", "Update DeepL Translator to 2026.11.06.1 or newer to show account usage.");
+    else if (quota?.reason === "unsupported") text += " " + t("Diese DeepL-Anmeldung (OAuth) liefert kein Kontingent. Der Rest ist unbekannt.", "This DeepL sign-in (OAuth) does not provide quota data. Remaining usage is unknown.");
+    else text += " " + t("Kontostand derzeit nicht verfügbar; der Rest ist unbekannt.", "Account usage is currently unavailable; remaining usage is unknown.");
+    box.textContent = text;
+    const refresh = this.root.querySelector("#refresh-usage");
+    if (refresh) refresh.disabled = this.busy || this.quotaLoading;
   }
   matchingRows() {
     const query = this.search.trim().toLocaleLowerCase();
@@ -109,6 +194,7 @@ class TranslatorWorkspace extends HTMLElement {
     this.root.querySelector("#selection-status").textContent = this.t(
       `${this.selected.size} Phrasen ausgewählt – auch außerhalb dieser Ansicht.`,
       `${this.selected.size} phrases selected, including phrases outside this view.`);
+    this.queueEstimate();
   }
   click(event) {
     const button = event.target.closest("button");
@@ -118,6 +204,11 @@ class TranslatorWorkspace extends HTMLElement {
     if (id === "menu") return this.dispatchEvent(new CustomEvent("hass-toggle-menu", {bubbles:true, composed:true}));
     if (id === "retry") { this.started = false; return this.start(); }
     if (id === "back") return this.run(() => this.list());
+    if (id === "refresh-usage") {
+      this.estimateKey = null;
+      this.queueEstimate();
+      return this.loadUsage();
+    }
     if (button.dataset.domain) return this.run(() => this.detail(button.dataset.domain));
     if (button.dataset.select) {
       this.select(button.dataset.select);
@@ -137,7 +228,9 @@ class TranslatorWorkspace extends HTMLElement {
     if (id === "translate") {
       const paths = [...this.selected].map(index => this.item.rows[index].path);
       return this.run(async () => {
-        await this.call("translate", {...data, paths, revision:this.item.revision, terms:this.terms.split("\n")});
+        try {
+          await this.call("translate", {...data, paths, revision:this.item.revision, terms:this.terms.split("\n")});
+        } catch (error) { this.loadUsage(); throw error; }
         await this.detail(data.domain);
         this.message = this.t(`${paths.length} Phrasen gespeichert.`, `Saved ${paths.length} phrases.`) + " " +
           this.t("Nach einem Neustart von Home Assistant und Neuladen des Browsers werden die Änderungen sichtbar.",
@@ -172,7 +265,7 @@ class TranslatorWorkspace extends HTMLElement {
       <ul>${items.map(i => `<li><button class="item" data-domain="${escapeHtml(i.domain)}" ${i.error ? "disabled" : ""}>
         <span>${escapeHtml(i.name)}<small>${escapeHtml(i.domain)}</small></span>
         <span>${escapeHtml(i.error || (i.conflict ? t("Datei geändert","File changed") :
-          i.missing ? t(`${i.missing} fehlen`,`${i.missing} missing`) :
+          i.missing ? (i.missing === i.count ? t(`Alle ${i.count} fehlen`,`All ${i.count} missing`) : t(`${i.missing} fehlen von ${i.count}`,`${i.missing} missing of ${i.count}`)) :
           i.count || i.exists ? t("Vollständig","Complete") : t("Keine Quellphrasen","No source phrases")))}</span></button></li>`).join("")}</ul>
       ${items.length ? "" : t("Keine Integrationen für diesen Filter.","No integrations match this filter.")}`;
   }
@@ -200,6 +293,12 @@ class TranslatorWorkspace extends HTMLElement {
         <textarea id="terms" rows="3" placeholder="Home Assistant&#10;DeepL">${escapeHtml(this.terms)}</textarea></label>
       <p>${t("Schreibweise beachten. Nur die ausgewählten Quelltexte werden an DeepL übergeben.",
             "Match the spelling exactly. Only selected source texts are submitted to DeepL.")}</p>
+      <section aria-label="${t("Verbrauch und Kontingent","Usage and quota")}">
+        <p id="usage" role="status" aria-live="polite"></p>
+        <button id="refresh-usage">${t("Kontostand aktualisieren","Refresh account usage")}</button>
+        <details><summary>${t("Wie wird der Verbrauch berechnet?", "How is usage calculated?")}</summary><small>${t("DeepL zählt Zeichen (Unicode-Codepunkte), einschließlich Leerzeichen und Schutzmarkern. Doppelte Texte zählen einmal pro Auftrag. Die Wortzahl ist nur eine Orientierung. Cache-Treffer, weitere Kontonutzer und verzögerte Verbrauchsmeldungen können das Ergebnis verändern. Auch Teilaufträge vor einem Fehler können Kontingent verbrauchen.",
+          "DeepL counts characters (Unicode code points), including whitespace and protection markers. Duplicate texts count once per request. Word count is only a guide. Cache hits, other account users and reporting delays can change the result. Partial batches before an error may also consume quota.")}</small></details>
+      </section>
       <button class="primary" id="translate"></button>
       ${item.managed ? `<hr><button id="restore" ${item.conflict && !item.original?"disabled":""}>${item.original ? t("Original wiederherstellen","Restore original") : t("Erzeugte Datei löschen","Delete generated file")}</button>` : ""}
       ${item.initial_available ? `<button id="download">${t("Erste Entwicklerfassung herunterladen","Download initial developer version")}</button>` : ""}`;
