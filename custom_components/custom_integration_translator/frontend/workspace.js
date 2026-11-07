@@ -155,7 +155,7 @@ class TranslatorWorkspace extends HTMLElement {
           ? t(`Die Auswahl überschreitet den gemeldeten Rest um voraussichtlich ${-remaining} Zeichen.`, `This selection is estimated to exceed the reported balance by ${-remaining} characters.`)
           : t(`Nach dieser Auswahl voraussichtlich ${remaining} Zeichen übrig.`, `Estimated remaining after this selection: ${remaining} characters.`));
       }
-    } else if (quota?.reason === "update_required") text += " " + t("Für den Kontostand bitte DeepL Translator auf 1.0.0b5 oder neuer aktualisieren.", "Update DeepL Translator to 1.0.0b5 or newer to show account usage.");
+    } else if (quota?.reason === "update_required") text += " " + t("Für den Kontostand bitte DeepL Translator auf 2026.11.06.1 oder neuer aktualisieren.", "Update DeepL Translator to 2026.11.06.1 or newer to show account usage.");
     else if (quota?.reason === "unsupported") text += " " + t("Diese DeepL-Anmeldung (OAuth) liefert kein Kontingent. Der Rest ist unbekannt.", "This DeepL sign-in (OAuth) does not provide quota data. Remaining usage is unknown.");
     else text += " " + t("Kontostand derzeit nicht verfügbar; der Rest ist unbekannt.", "Account usage is currently unavailable; remaining usage is unknown.");
     box.textContent = text;
