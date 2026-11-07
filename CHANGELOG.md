@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.11.07.1
+
+- Prepare a release validated by the shared HASS Marketplace workflow, including HACS and Hassfest without ignored checks.
+- Keep the generated Marketplace submission files available as a workflow artifact.
+
 ## 2026.11.06.1
 
 - Show missing phrases relative to the total, with a distinct label when every phrase is missing.
