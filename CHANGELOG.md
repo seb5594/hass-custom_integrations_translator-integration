@@ -2,6 +2,8 @@
 
 ## 2026.11.07.1
 
+- Declare the HTTP dependency and fix setup-link placeholders and the retained-files repair translation schema.
+
 - Prepare a release validated by the shared HASS Marketplace workflow, including HACS and Hassfest without ignored checks.
 - Keep the generated Marketplace submission files available as a workflow artifact.
 
