@@ -8,7 +8,11 @@ import json
 import os
 import re
 import tempfile
+from functools import partial
 from pathlib import Path
+from stat import S_ISREG
+
+MAX_SCAN_FILE_BYTES = 8 * 1024 * 1024
 
 
 class CatalogError(ValueError):
@@ -43,9 +47,20 @@ def safe(path):
     return path
 
 
-def read(path):
+def read(path, *, limit=None):
     try:
-        return safe(path).read_bytes()
+        info = safe(path).stat()
+        if not S_ISREG(info.st_mode):
+            raise CatalogError(f"Not a regular file: {path.name}")
+        if limit is None:
+            return path.read_bytes()
+        if info.st_size > limit:
+            raise CatalogError(f"File too large for catalog scan: {path.name}")
+        with path.open("rb") as source:
+            data = source.read(info.st_size + 1)
+        if len(data) > info.st_size:
+            raise CatalogError(f"File grew during catalog scan: {path.name}")
+        return data
     except FileNotFoundError:
         return None
 
@@ -148,8 +163,8 @@ class Catalog:
         journal = safe(safe(safe(self.storage) / domain) / f"{language}.json")
         return folder, target, backup, journal
 
-    def state(self, journal, raw):
-        stored = read(journal)
+    def state(self, journal, raw, *, limit=None):
+        stored = read(journal, limit=limit)
         if stored is None:
             return None
         state = dictionary(stored)
@@ -160,9 +175,14 @@ class Catalog:
 
     def detail(self, domain, language, *, include_rows=True):
         folder, target, backup, journal = self.paths(domain, language)
-        manifest = dictionary(safe(folder / "manifest.json").read_bytes())
-        raw = read(target)
-        state = self.state(journal, raw)
+        limit = None if include_rows else MAX_SCAN_FILE_BYTES
+        read_file = partial(read, limit=limit)
+        manifest_raw = read_file(folder / "manifest.json")
+        if manifest_raw is None:
+            raise CatalogError("Integration manifest is missing")
+        manifest = dictionary(manifest_raw)
+        raw = read_file(target)
+        state = self.state(journal, raw, limit=limit)
         conflict = bool(state and externally_changed(state, target, raw))
         try:
             current = dictionary(raw) if raw is not None else {}
@@ -170,16 +190,16 @@ class Catalog:
             if not conflict:
                 raise
             current = {}
-        if not state and backup.exists() and read(backup) != raw:
+        if not state and backup.exists() and read_file(backup) != raw:
             conflict = True
         source = None
         source_lang = None
         source_phrases = {}
         for candidate, code in source_candidates(folder, target, language):
-            data = read(candidate)
+            data = read_file(candidate)
             if data is not None and candidate.parent == target.parent:
                 # A generated language must never become the source for another translation.
-                source_state = self.state(self.paths(domain, code)[3], data)
+                source_state = self.state(self.paths(domain, code)[3], data, limit=limit)
                 if source_state and not externally_changed(
                     source_state, candidate, data
                 ):
@@ -190,7 +210,7 @@ class Catalog:
         values = dict(phrases(current))
         result = {
             "domain": domain,
-            "name": manifest.get("name", domain),
+            "name": manifest["name"] if isinstance(manifest.get("name"), str) else domain,
             "language": language,
             "source_language": source_lang,
             "exists": raw is not None,
@@ -231,7 +251,7 @@ class Catalog:
         """Read fresh summary data for one integration without building editor rows."""
         try:
             return self.detail(domain, language, include_rows=False)
-        except (OSError, ValueError, KeyError) as err:
+        except (OSError, ValueError, KeyError, RecursionError) as err:
             return {
                 "name": domain,
                 "domain": domain,

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.11.14.1
+
+- Validate saved scan intervals before registering the timer. Invalid values fall back to the weekly check.
+- Time out background language lookups after 15 seconds and wait for DeepL outside the file lock.
+- Skip oversized JSON files, non-regular files and excessively nested JSON during catalog scans. Other integrations are still checked.
+
 ## 2026.11.06.1
 
 - Show missing phrases relative to the total, with a distinct label when every phrase is missing.

@@ -152,6 +152,41 @@ async def test_master_switch_prevents_all_background_work(hass, discovery):
     runtime.refresh.assert_not_called()
 
 
+async def test_stalled_language_check_times_out_without_locking_files(hass):
+    entry = SimpleNamespace(data={"deepl_entry": "account"}, options={})
+    runtime = Runtime(hass, entry)
+    started = asyncio.Event()
+
+    async def stalled():
+        started.set()
+        await asyncio.Future()
+
+    runtime.provider.languages = stalled
+    runtime.catalog.scan = Mock()
+    runtime.catalog.restore = Mock()
+    with patch(
+        "custom_components.custom_integration_translator.runtime.LANGUAGE_CHECK_TIMEOUT",
+        0.1,
+    ):
+        task = asyncio.create_task(runtime.refresh())
+        await asyncio.wait_for(started.wait(), timeout=2)
+        assert not runtime.lock.locked()
+        await runtime.restore("example", "de")
+        await asyncio.wait_for(task, timeout=2)
+    runtime.catalog.restore.assert_called_once_with("example", "de", None)
+    runtime.catalog.scan.assert_not_called()
+
+
+async def test_invalid_stored_interval_cannot_trigger_rapid_scans(hass, discovery):
+    runtime, _ = discovery
+    runtime.entry.options = {"scan_startup": False, "scan_interval_hours": -1}
+    monitor(runtime)
+    await advance(hass, 3 * 3600)
+    runtime.refresh.assert_not_called()
+    await advance(hass, 168 * 3600 + 1)
+    runtime.refresh.assert_awaited_once()
+
+
 async def test_disabled_notices_register_no_background_work(hass, discovery):
     runtime, cleanups = discovery
     runtime.entry.options = {"notify_missing": False, "repair_missing": False}
