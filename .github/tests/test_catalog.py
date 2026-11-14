@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,6 +35,22 @@ class TranslationFiles(unittest.TestCase):
 
     def detail(self):
         return self.catalog.detail("example", "de")
+
+    def test_scan_skips_oversized_files_and_continues(self):
+        folder = self.folder.with_name("oversized")
+        (folder / "translations").mkdir(parents=True)
+        (folder / "manifest.json").write_text('{"name": "Oversized"}')
+        (folder / "translations" / "en.json").write_text(" " * 1025)
+        with patch.object(catalog, "MAX_SCAN_FILE_BYTES", 1024):
+            items = {item["domain"]: item for item in self.catalog.scan("de")}
+        self.assertEqual(items["example"]["missing"], 2)
+        self.assertIn("File too large", items["oversized"]["error"])
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires a named pipe")
+    def test_scan_rejects_named_pipe_without_opening_it(self):
+        os.mkfifo(self.target)
+        item = self.catalog.scan("de")[0]
+        self.assertIn("Not a regular file", item["error"])
 
     def save(self, changes):
         self.catalog.save("example", "de", self.detail()["revision"], changes)

@@ -112,6 +112,9 @@ def monitor(runtime):
         entry.async_on_unload(async_at_started(hass, started))
 
     hours = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    # Stored options can predate the current number selector.
+    if not isinstance(hours, (int, float)) or not (hours == 0 or 1 <= hours <= 168):
+        hours = DEFAULT_SCAN_INTERVAL
     if hours:
         entry.async_on_unload(
             async_track_time_interval(

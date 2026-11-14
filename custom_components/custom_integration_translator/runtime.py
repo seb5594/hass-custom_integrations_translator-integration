@@ -22,6 +22,7 @@ from .discovery import (
 from .provider import DeepLProvider
 
 _LOGGER = logging.getLogger(__name__)
+LANGUAGE_CHECK_TIMEOUT = 15
 
 
 def file_lock(hass):
@@ -93,18 +94,27 @@ class Runtime:
         if not background_enabled(self.entry.options):
             self.cleanup()
             return
+        language = self.language
+        try:
+            supported = await asyncio.wait_for(
+                self.provider.languages(), timeout=LANGUAGE_CHECK_TIMEOUT
+            )
+        except (HomeAssistantError, asyncio.TimeoutError, OSError, ValueError) as err:
+            _LOGGER.debug("Discovery postponed: %s", str(err) or type(err).__name__)
+            if self.active and self.language == language:
+                self.overview = None
+                async_dispatcher_send(self.hass, f"{DOMAIN}_overview")
+            return
         async with self.lock:
-            if not self.active:
+            if not self.active or self.language != language:
                 return
             try:
-                language = self.language
                 # A language change invalidates every previous suggestion. A local
                 # write otherwise only needs to refresh the affected integration.
                 if self.notice_language not in (None, language) or (
                     self.entry.options.get(CONF_OVERVIEW_SENSOR, False) and self.overview is None
                 ):
                     domain = None
-                supported = await self.provider.languages()
                 if language not in supported:
                     domain, items = None, []
                 elif domain is not None:
