@@ -4,11 +4,15 @@
   "after_dependencies": [
     "deepl_translator"
   ],
+  "categories": [
+    "computers_network.cloud_developer_tools"
+  ],
   "codeowners": [
     "@seb5594"
   ],
   "config_flow": true,
   "dependencies": [
+    "http",
     "panel_custom",
     "persistent_notification"
   ],
