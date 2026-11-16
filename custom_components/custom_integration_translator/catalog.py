@@ -1,0 +1,391 @@
+"""Read HA translation dictionaries and commit edits with a recoverable ownership journal."""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import os
+import re
+import tempfile
+from functools import partial
+from pathlib import Path
+from stat import S_ISREG
+
+MAX_SCAN_FILE_BYTES = 8 * 1024 * 1024
+
+
+class CatalogError(ValueError):
+    """An operation needs user attention."""
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest() if data is not None else None
+
+
+def encode(value):
+    return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode()
+
+
+def unique_keys(pairs):
+    result = dict(pairs)
+    if len(result) != len(pairs):
+        raise CatalogError("Duplicate JSON key")
+    return result
+
+
+def dictionary(raw):
+    result = json.loads(raw.decode("utf-8-sig"), object_pairs_hook=unique_keys)
+    if not isinstance(result, dict):
+        raise CatalogError("Expected a JSON object")
+    return result
+
+
+def safe(path):
+    if path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction()):
+        raise CatalogError(f"Linked path: {path.name}")
+    return path
+
+
+def read(path, *, limit=None):
+    try:
+        info = safe(path).stat()
+        if not S_ISREG(info.st_mode):
+            raise CatalogError(f"Not a regular file: {path.name}")
+        if limit is None:
+            return path.read_bytes()
+        if info.st_size > limit:
+            raise CatalogError(f"File too large for catalog scan: {path.name}")
+        with path.open("rb") as source:
+            data = source.read(info.st_size + 1)
+        if len(data) > info.st_size:
+            raise CatalogError(f"File grew during catalog scan: {path.name}")
+        return data
+    except FileNotFoundError:
+        return None
+
+
+def publish(path, raw, *, exclusive=False):
+    """Publish a complete file in the same filesystem. Never replace an existing backup."""
+    safe(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as temp:
+        staged = Path(temp.name)
+    try:
+        with staged.open("wb") as output:
+            output.write(raw)
+            output.flush()
+            os.fsync(output.fileno())
+        if exclusive:
+            os.link(staged, path)
+        else:
+            os.replace(staged, path)
+    finally:
+        staged.unlink(missing_ok=True)
+
+
+def phrases(tree, path=()):
+    for key, value in tree.items():
+        child = (*path, key)
+        if isinstance(value, dict):
+            yield from phrases(value, child)
+        elif isinstance(value, str) and value.strip():
+            yield child, value
+
+
+def stamp(path):
+    try:
+        stat = safe(path).stat()
+    except FileNotFoundError:
+        return None
+    return [stat.st_dev, stat.st_ino, stat.st_mtime_ns]
+
+
+def externally_changed(state, path, raw):
+    return digest(raw) != state["last"] or (
+        state.get("stamp") is not None and state["stamp"] != stamp(path)
+    )
+
+
+def initial_path(journal):
+    return safe(safe(journal.parent / "originals") / journal.name)
+
+
+def preserve_original(journal, original):
+    if original is None:
+        return
+    archive = initial_path(journal)
+    first = read(archive)
+    if first is not None and first != original:
+        archive = safe(archive.with_name(f"{archive.stem}.{digest(original)}.json"))
+    existing = read(archive)
+    if existing is None:
+        publish(archive, original, exclusive=True)
+    elif existing != original:
+        raise CatalogError("Original archive conflicts with existing file")
+
+
+def key_id(path):
+    return json.dumps(path, ensure_ascii=False, separators=(",", ":"))
+
+
+def source_candidates(folder, target, language):
+    """Only enumerate fallback languages if the preferred English sources fail."""
+    if language != "en":
+        yield target.parent / "en.json", "en"
+        yield folder / "strings.json", "en"
+    for path in sorted(target.parent.glob("*.json")):
+        if (
+            path != target
+            and path.stem != "en"
+            and re.fullmatch(r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", path.stem)
+        ):
+            yield path, path.stem
+    if language == "en":
+        yield folder / "strings.json", "en"
+
+
+class Catalog:
+    def __init__(self, config):
+        self.root = Path(config) / "custom_components"
+        self.storage = Path(config) / ".storage" / "custom_integration_translator"
+
+    def paths(self, domain, language):
+        if not re.fullmatch(r"[a-z0-9_]+", domain) or not re.fullmatch(
+            r"[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*", language
+        ):
+            raise CatalogError("Invalid integration or language key")
+        folder = safe(safe(self.root) / domain)
+        translations = safe(folder / "translations")
+        target = safe(translations / f"{language}.json")
+        backup = safe(translations / f"{language}.json.bak")
+        safe(self.storage.parent)
+        journal = safe(safe(safe(self.storage) / domain) / f"{language}.json")
+        return folder, target, backup, journal
+
+    def state(self, journal, raw, *, limit=None):
+        stored = read(journal, limit=limit)
+        if stored is None:
+            return None
+        state = dictionary(stored)
+        pending = state.pop("pending", None)
+        if pending and digest(raw) == pending["last"]:
+            state.update(pending)
+        return state
+
+    def detail(self, domain, language, *, include_rows=True):
+        folder, target, backup, journal = self.paths(domain, language)
+        limit = None if include_rows else MAX_SCAN_FILE_BYTES
+        read_file = partial(read, limit=limit)
+        manifest_raw = read_file(folder / "manifest.json")
+        if manifest_raw is None:
+            raise CatalogError("Integration manifest is missing")
+        manifest = dictionary(manifest_raw)
+        raw = read_file(target)
+        state = self.state(journal, raw, limit=limit)
+        conflict = bool(state and externally_changed(state, target, raw))
+        try:
+            current = dictionary(raw) if raw is not None else {}
+        except ValueError:
+            if not conflict:
+                raise
+            current = {}
+        if not state and backup.exists() and read_file(backup) != raw:
+            conflict = True
+        source = None
+        source_lang = None
+        source_phrases = {}
+        for candidate, code in source_candidates(folder, target, language):
+            data = read_file(candidate)
+            if data is not None and candidate.parent == target.parent:
+                # A generated language must never become the source for another translation.
+                source_state = self.state(self.paths(domain, code)[3], data, limit=limit)
+                if source_state and not externally_changed(
+                    source_state, candidate, data
+                ):
+                    data = self.original(source_state)
+            if data is not None and (source_phrases := dict(phrases(dictionary(data)))):
+                source, source_lang = data, code
+                break
+        values = dict(phrases(current))
+        result = {
+            "domain": domain,
+            "name": manifest["name"] if isinstance(manifest.get("name"), str) else domain,
+            "language": language,
+            "source_language": source_lang,
+            "exists": raw is not None,
+            "managed": state is not None,
+            "original": state is not None and state["original"] is not None,
+            "initial_available": initial_path(journal).is_file(),
+            "conflict": conflict,
+            "missing": sum(path not in values for path in source_phrases),
+            "count": len(source_phrases),
+        }
+        if not include_rows:
+            return result
+        generated = set(state["keys"]) if state and not conflict else set()
+        result["rows"] = [
+            {
+                "path": list(path),
+                "source": text,
+                "target": values.get(path),
+                "generated": bool(generated) and key_id(path) in generated,
+            }
+            for path, text in source_phrases.items()
+        ]
+        result["target_hash"] = digest(raw)
+        result["revision"] = digest(
+            encode(
+                [
+                    source_lang,
+                    digest(source),
+                    digest(raw),
+                    stamp(target),
+                    digest(read(journal)),
+                ]
+            )
+        )
+        return result
+
+    def summary(self, domain, language):
+        """Read fresh summary data for one integration without building editor rows."""
+        try:
+            return self.detail(domain, language, include_rows=False)
+        except (OSError, ValueError, KeyError, RecursionError) as err:
+            return {
+                "name": domain,
+                "domain": domain,
+                "error": str(err),
+                "missing": 0,
+            }
+
+    def scan(self, language):
+        items = []
+        for folder in sorted(safe(self.root).iterdir()):
+            if folder.name.startswith(".") or not (folder / "manifest.json").is_file():
+                continue
+            items.append(self.summary(folder.name, language))
+        return sorted(
+            items,
+            key=lambda item: (
+                not item["missing"],
+                item["name"].casefold(),
+                item["domain"],
+            ),
+        )
+
+    @staticmethod
+    def original(state):
+        data = state["original"]
+        raw = base64.b64decode(data, validate=True) if data is not None else None
+        if digest(raw) != state["original_hash"]:
+            raise CatalogError("Damaged original in recovery journal")
+        return raw
+
+    def save(self, domain, language, revision, changes):
+        detail = self.detail(domain, language)
+        if detail["conflict"] or detail["revision"] != revision:
+            raise CatalogError("Files changed. Open the integration again.")
+        if not changes or not changes.keys() <= {
+            tuple(row["path"]) for row in detail["rows"]
+        }:
+            raise CatalogError("Invalid phrase selection")
+        _, target, backup, journal = self.paths(domain, language)
+        raw = read(target)
+        if digest(raw) != detail["target_hash"]:
+            raise CatalogError("Target changed")
+        tree = dictionary(raw) if raw is not None else {}
+        state = self.state(journal, raw)
+        if state is None:
+            state = {
+                "original": base64.b64encode(raw).decode() if raw is not None else None,
+                "original_hash": digest(raw),
+                "last": digest(raw),
+                "keys": [],
+            }
+        if externally_changed(state, target, raw):
+            raise CatalogError("Target changed")
+        original = self.original(state)
+        existing_backup = read(backup)
+        if existing_backup is not None and existing_backup != original:
+            raise CatalogError("Backup belongs to a different file")
+        for path, value in changes.items():
+            parent = tree
+            for key in path[:-1]:
+                parent = parent.setdefault(key, {})
+                if not isinstance(parent, dict):
+                    raise CatalogError(
+                        "Source and target have conflicting JSON structures"
+                    )
+            if path[-1] in parent and not isinstance(parent[path[-1]], str):
+                raise CatalogError("Source and target have conflicting JSON structures")
+            parent[path[-1]] = value
+        result = encode(tree)
+        pending = {
+            "last": digest(result),
+            "stamp": None,
+            "keys": sorted(set(state["keys"]) | {key_id(p) for p in changes}),
+        }
+        preserve_original(journal, original)
+        if original is not None and existing_backup is None:
+            publish(backup, original, exclusive=True)
+        publish(journal, encode({**state, "pending": pending}))
+        if read(target) != raw:
+            raise CatalogError("Target changed during translation")
+        publish(target, result, exclusive=raw is None)
+        publish(journal, encode({**state, **pending, "stamp": stamp(target)}))
+
+    def restore(self, domain, language, revision=None):
+        folder, target, backup, journal = self.paths(domain, language)
+        raw = read(target)
+        state = self.state(journal, raw)
+        if state is None:
+            raise CatalogError("No managed translation")
+        original = self.original(state)
+        if not (folder / "manifest.json").is_file():
+            raise CatalogError("Integration is no longer installed")
+        if raw == original:
+            journal.unlink()
+            return
+        if externally_changed(state, target, raw):
+            # Only an explicit per-file decision may restore across a HACS/user edit.
+            if (
+                original is None
+                or revision is None
+                or self.detail(domain, language)["revision"] != revision
+            ):
+                raise CatalogError(
+                    "External change detected. Review this file in the workspace."
+                )
+            if raw is not None:
+                archive = target.with_suffix(f".json.{digest(raw)}.bak")
+                copy = read(archive)
+                if copy is None:
+                    publish(archive, raw, exclusive=True)
+                elif copy != raw:
+                    raise CatalogError(
+                        "The recovery archive already belongs to another file"
+                    )
+        if original is None and backup.exists():
+            raise CatalogError("An unowned backup exists. No file was deleted.")
+        if read(target) != raw:
+            raise CatalogError("Target changed during recovery")
+        if original is None:
+            target.unlink()
+        else:
+            publish(target, original)
+        journal.unlink()
+
+    def restore_all(self):
+        for domain, language in self.managed():
+            try:
+                self.restore(domain, language)
+            except (OSError, ValueError) as err:
+                raise CatalogError(
+                    f"{domain}/translations/{language}.json: {err}"
+                ) from err
+
+    def managed(self):
+        return [
+            (p.parent.name, p.stem) for p in sorted(safe(self.storage).glob("*/*.json"))
+        ]

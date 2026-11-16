@@ -1,0 +1,125 @@
+{
+  "title": "Custom Integration Translator",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose a DeepL account",
+        "description": "Selected phrases will be translated through this configured account.",
+        "data": {
+          "deepl_entry": "DeepL account"
+        }
+      },
+      "discovery_confirm": {
+        "title": "Custom Integration Translator",
+        "description": "Translate missing phrases in your custom integrations with your configured DeepL account. Review source and target text, select phrases and protect product names before translating. Set up the translator now?"
+      }
+    },
+    "abort": {
+      "deepl_required": "Set up [DeepL Translator]({deepl_url}) first, then try again.",
+      "already_configured": "The translator is already configured."
+    },
+    "flow_title": "{name}",
+    "error": {
+      "deepl_required": "No DeepL account is currently available. Set up or enable DeepL Translator, then try again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manage translations",
+        "menu_options": {
+          "preferences": "Language and sidebar",
+          "deactivate": "Disable translator…",
+          "automation": "Automatic checks",
+          "notifications": "Notifications"
+        }
+      },
+      "preferences": {
+        "title": "Language and sidebar",
+        "description": "Choose “system” to follow the Home Assistant system language.",
+        "data": {
+          "language": "Default target language",
+          "sidebar": "Show translations in the sidebar",
+          "protected_words": "Protected words, one per line"
+        }
+      },
+      "deactivate": {
+        "title": "Disable the translator?",
+        "description": "By default all translations are kept. Select the option to first restore originals and remove files created solely by the translator. {detail}",
+        "data": {
+          "undo": "Undo translations before disabling"
+        }
+      },
+      "automation": {
+        "title": "Automatic checks",
+        "description": "Turn off automatic checks to use the workspace manually only. Individual trigger choices and the interval are kept for later. These settings do not change translation files.",
+        "data": {
+          "automatic_checks": "Enable automatic checks",
+          "scan_startup": "Check at startup",
+          "watch_hacs": "Check after HACS installations and removals",
+          "watch_marketplace": "Check after Marketplace installations and removals",
+          "scan_loaded": "Check when a custom integration loads",
+          "scan_language": "Check when the system language changes",
+          "scan_interval_hours": "Additional check interval in hours"
+        },
+        "data_description": {
+          "scan_interval_hours": "168 hours = once a week; 0 disables the periodic check. The selected event triggers stay active while automatic checks are enabled."
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "New setups show missing translations quietly in the overview sensor. Individual notifications and Repairs issues can be enabled here. Saving removes disabled suggestions; recovery dialogs remain available.",
+        "data": {
+          "notify_missing": "Notify about missing language files",
+          "repair_missing": "Create Repairs issues for missing phrases",
+          "overview_sensor": "Enable overview sensor"
+        }
+      }
+    },
+    "abort": {
+      "deactivated": "The translator is being disabled.",
+      "provider_unavailable": "The configured DeepL account is unavailable."
+    },
+    "error": {
+      "restore_failed": "Cleanup stopped. Review the affected file in the workspace."
+    }
+  },
+  "entity": {
+    "button": {
+      "open_workspace": {
+        "name": "Open translations"
+      }
+    },
+    "sensor": {
+      "missing_integrations": {
+        "name": "Integrations with missing translations"
+      }
+    }
+  },
+  "services": {
+    "open_workspace": {
+      "name": "Open translations",
+      "description": "Open the workspace in the calling administrator’s visible browser. Automations without a user context create a notification with a link."
+    }
+  },
+  "issues": {
+    "missing": {
+      "title": "{name} · {count} missing phrases ({language})",
+      "description": "The existing translation is missing source phrases. [Review and add phrases]({url})"
+    },
+    "retained": {
+      "title": "Review retained translations",
+      "fix_flow": {
+        "step": {
+          "review": {
+            "title": "Keep translations?",
+            "description": "The translator was disabled or removed. The managed language files were kept. Leave the box unchecked to keep the files. Undoing changes restores originals and removes generated files. {detail}",
+            "data": {
+              "undo": "Undo all managed changes"
+            }
+          }
+        }
+      }
+    }
+  }
+}
