@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.16.1
+
+- Add the Cloud & developer tools Marketplace category, declare the HTTP dependency, and correct the setup and repair translations.
+
 ## 2026.11.14.1
 
 - Validate saved scan intervals before registering the timer. Invalid values fall back to the weekly check.
