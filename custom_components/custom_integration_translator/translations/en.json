@@ -109,12 +109,11 @@
     },
     "retained": {
       "title": "Review retained translations",
-      "description": "The translator was disabled or removed. {count} managed language files were kept. Confirm that choice or undo the changes.",
       "fix_flow": {
         "step": {
           "review": {
             "title": "Keep translations?",
-            "description": "Leave the box unchecked to keep the files. Undoing changes restores originals and removes generated files. {detail}",
+            "description": "The translator was disabled or removed. The managed language files were kept. Leave the box unchecked to keep the files. Undoing changes restores originals and removes generated files. {detail}",
             "data": {
               "undo": "Undo all managed changes"
             }

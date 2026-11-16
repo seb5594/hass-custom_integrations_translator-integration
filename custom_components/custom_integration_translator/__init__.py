@@ -100,7 +100,7 @@ async def offer_cleanup(hass):
 
     managed = await hass.async_add_executor_job(Catalog(hass.config.config_dir).managed)
     if managed:
-        offer_review(hass, len(managed))
+        offer_review(hass)
 
 
 async def async_remove_entry(hass, entry):

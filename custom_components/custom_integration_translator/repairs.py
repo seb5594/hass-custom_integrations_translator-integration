@@ -9,7 +9,7 @@ from .const import DOMAIN
 from .runtime import file_lock
 
 
-def offer_review(hass, count):
+def offer_review(hass):
     ir.async_create_issue(
         hass,
         DOMAIN,
@@ -18,7 +18,6 @@ def offer_review(hass, count):
         is_persistent=True,
         severity=ir.IssueSeverity.WARNING,
         translation_key="retained",
-        translation_placeholders={"count": str(count)},
     )
 
 

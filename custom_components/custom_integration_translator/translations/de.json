@@ -109,12 +109,11 @@
     },
     "retained": {
       "title": "Gespeicherte Übersetzungen prüfen",
-      "description": "Der Translator wurde deaktiviert oder entfernt. {count} verwaltete Sprachdateien wurden beibehalten. Hier kannst du diese Entscheidung bestätigen oder die Änderungen rückgängig machen.",
       "fix_flow": {
         "step": {
           "review": {
             "title": "Übersetzungen behalten?",
-            "description": "Lass das Kästchen leer, um die Dateien zu behalten. Beim Rückgängigmachen werden Originale wiederhergestellt und rein erzeugte Dateien entfernt. {detail}",
+            "description": "Der Translator wurde deaktiviert oder entfernt. Die verwalteten Sprachdateien wurden beibehalten. Lass das Kästchen leer, um die Dateien zu behalten. Beim Rückgängigmachen werden Originale wiederhergestellt und rein erzeugte Dateien entfernt. {detail}",
             "data": {
               "undo": "Alle verwalteten Änderungen rückgängig machen"
             }
