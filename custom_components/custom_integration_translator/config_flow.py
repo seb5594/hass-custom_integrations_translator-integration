@@ -6,7 +6,18 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
 from .compat import vol
-from .const import DEEPL, DOMAIN, NAME
+from .const import DOMAIN, NAME
+from .provider import PROVIDER_TYPES
+from .providers import (
+    ACCOUNT_FIELDS,
+    CONF_DEFAULT_PROVIDER,
+    CONF_LEGACY_DEEPL,
+    CONF_PROVIDER_FALLBACK,
+    CONF_PROVIDERS,
+    PROVIDER_URLS,
+    available_accounts,
+    configured_accounts,
+)
 from .discovery import (
     CONF_OVERVIEW_SENSOR,
     CONF_SCAN_INTERVAL,
@@ -16,11 +27,43 @@ from .discovery import (
 )
 
 
+def provider_names():
+    return {provider_type.domain: provider_type.name for provider_type in PROVIDER_TYPES}
+
+
+def provider_fields(accounts, current, existing_default=None, fallback=None):
+    """Form fields to choose an account per service, the preferred service and the takeover."""
+    fields = {}
+    for domain, titles in accounts.items():
+        chosen = current.get(domain)
+        fields[
+            vol.Required(
+                ACCOUNT_FIELDS[domain],
+                default=chosen if chosen in titles else next(iter(titles)),
+            )
+        ] = vol.In(titles)
+    if len(accounts) > 1:
+        names = {domain: provider_names()[domain] for domain in accounts}
+        first = existing_default if existing_default in names else next(iter(names))
+        fields[vol.Required(CONF_DEFAULT_PROVIDER, default=first)] = vol.In(names)
+        if fallback is not None:
+            fields[vol.Required(CONF_PROVIDER_FALLBACK, default=fallback)] = bool
+    return fields
+
+
+def chosen_accounts(accounts, user_input):
+    """The accounts picked in the form, or None if one of them is not valid."""
+    chosen = {domain: user_input.get(ACCOUNT_FIELDS[domain]) for domain in accounts}
+    if all(entry_id in accounts[domain] for domain, entry_id in chosen.items()):
+        return chosen
+    return None
+
+
 class TranslatorFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_integration_discovery(self, discovery_info):
-        """Offer setup when the running DeepL integration finds our files."""
+        """Offer setup when a running translation service finds our files."""
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
         self.context["title_placeholders"] = {"name": NAME}
@@ -30,12 +73,9 @@ class TranslatorFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Keep the discovery card until the user chooses to configure or ignore it."""
         errors = {}
         if user_input is not None:
-            if any(
-                entry.state is config_entries.ConfigEntryState.LOADED
-                for entry in self.hass.config_entries.async_entries(DEEPL)
-            ):
+            if available_accounts(self.hass):
                 return await self.async_step_user()
-            errors["base"] = "deepl_required"
+            errors["base"] = "provider_required"
         return self.async_show_form(
             step_id="discovery_confirm", data_schema=vol.Schema({}), errors=errors
         )
@@ -43,37 +83,30 @@ class TranslatorFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
-        entries = {
-            entry.entry_id: entry.title
-            for entry in self.hass.config_entries.async_entries(DEEPL)
-            if entry.state is config_entries.ConfigEntryState.LOADED
-        }
-        if not entries:
+        accounts = available_accounts(self.hass)
+        if not accounts:
             return self.async_abort(
-                reason="deepl_required",
+                reason="provider_required",
                 description_placeholders={
-                    "deepl_url": "https://github.com/seb5594/hass-deepl_translator-integration"
+                    "providers": " · ".join(
+                        f"[{provider_type.name} Translator]({PROVIDER_URLS[provider_type.domain]})"
+                        for provider_type in PROVIDER_TYPES
+                    )
                 },
             )
-        if user_input is not None and user_input.get("deepl_entry") in entries:
+        if user_input is not None and (chosen := chosen_accounts(accounts, user_input)):
+            options = {
+                "notify_missing": False,
+                "repair_missing": False,
+                CONF_OVERVIEW_SENSOR: True,
+            }
+            if user_input.get(CONF_DEFAULT_PROVIDER) in chosen:
+                options[CONF_DEFAULT_PROVIDER] = user_input[CONF_DEFAULT_PROVIDER]
             return self.async_create_entry(
-                title=NAME,
-                data=user_input,
-                options={
-                    "notify_missing": False,
-                    "repair_missing": False,
-                    CONF_OVERVIEW_SENSOR: True,
-                },
+                title=NAME, data={CONF_PROVIDERS: chosen}, options=options
             )
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("deepl_entry", default=next(iter(entries))): vol.In(
-                        entries
-                    )
-                }
-            ),
+            step_id="user", data_schema=vol.Schema(provider_fields(accounts, {}))
         )
 
     @staticmethod
@@ -90,7 +123,13 @@ class TranslatorOptions(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         return self.async_show_menu(
             step_id="init",
-            menu_options=["preferences", "automation", "notifications", "deactivate"],
+            menu_options=[
+                "preferences",
+                "providers",
+                "automation",
+                "notifications",
+                "deactivate",
+            ],
         )
 
     async def async_step_preferences(self, user_input=None):
@@ -100,7 +139,7 @@ class TranslatorOptions(config_entries.OptionsFlow):
             )
         entry = self.entry
         try:
-            languages = list(await self.hass.data[DOMAIN].provider.languages())
+            languages = sorted(await self.hass.data[DOMAIN].supported_languages())
         except HomeAssistantError:
             return self.async_abort(reason="provider_unavailable")
         options = ["system", *languages]
@@ -126,6 +165,31 @@ class TranslatorOptions(config_entries.OptionsFlow):
                 }
             ),
         )
+
+    async def async_step_providers(self, user_input=None):
+        """Choose the account of each translation service and which one is preferred."""
+        entry = self.entry
+        accounts = available_accounts(self.hass)
+        if not accounts:
+            return self.async_abort(reason="provider_unavailable")
+        if user_input is not None and (chosen := chosen_accounts(accounts, user_input)):
+            data = {key: value for key, value in entry.data.items() if key != CONF_LEGACY_DEEPL}
+            self.hass.config_entries.async_update_entry(
+                entry, data={**data, CONF_PROVIDERS: chosen}
+            )
+            options = {**entry.options}
+            if user_input.get(CONF_DEFAULT_PROVIDER) in chosen:
+                options[CONF_DEFAULT_PROVIDER] = user_input[CONF_DEFAULT_PROVIDER]
+            if CONF_PROVIDER_FALLBACK in user_input:
+                options[CONF_PROVIDER_FALLBACK] = user_input[CONF_PROVIDER_FALLBACK]
+            return self.async_create_entry(title="", data=options)
+        fields = provider_fields(
+            accounts,
+            configured_accounts(entry),
+            entry.options.get(CONF_DEFAULT_PROVIDER),
+            entry.options.get(CONF_PROVIDER_FALLBACK, False),
+        )
+        return self.async_show_form(step_id="providers", data_schema=vol.Schema(fields))
 
     async def async_step_automation(self, user_input=None):
         return self._switches("automation", TRIGGER_OPTIONS, user_input)

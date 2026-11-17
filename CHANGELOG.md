@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.11.17.1
+
+- Use Google Translator next to DeepL Translator. Either one is enough to set the translator up; services installed later show up on their own. With both, the workspace has a **Translation service** selector whose language list follows the chosen service, and the result names the service that translated.
+- Add **Configure → Translation services** to choose the account of each service, the preferred service and an optional takeover by the other service when the chosen one fails. The takeover is off by default.
+- Match language codes Google spells differently (`he`/`iw`, `nb`/`no`, `zh-Hans`/`zh-CN`, `pt-BR`/`pt`).
+- Show Google usage as the count kept by Google Translator and label it as such, since Google reports none. The balance and the explanation name the service in use.
+- Label generated phrases as machine translated instead of naming DeepL. Entries created before this release keep working with their DeepL account.
+- Offer Google Translator in the setup suggestion and in the missing-service message.
+
 ## 2026.11.16.1
 
 - Add the Cloud & developer tools Marketplace category, declare the HTTP dependency, and correct the setup and repair translations.

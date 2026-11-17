@@ -40,13 +40,14 @@ async def frontend_ready(hass, tmp_path, enable_custom_integrations):
         yield tmp_path
 
 
-async def test_requires_deepl(hass, frontend_ready):
+async def test_requires_a_translation_service(hass, frontend_ready):
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": "user"}
     )
-    assert result["reason"] == "deepl_required"
+    assert result["reason"] == "provider_required"
     assert result["description_placeholders"] == {
-        "deepl_url": "https://github.com/seb5594/hass-deepl_translator-integration"
+        "providers": "[DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration)"
+        " · [Google Translator](https://github.com/seb5594/hass-google_translator-integration)"
     }
 
 
@@ -448,3 +449,211 @@ async def test_quiet_overview_updates_without_notifications_or_extra_polling(
     await runtime.refresh()
     assert hass.states.get(sensor_id).state == "unavailable"
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+# --- DeepL and Google side by side -------------------------------------------------------------
+
+GOOGLE = "google_translator"
+
+
+def register_services(hass, domain, codes, translate=None, usage=None):
+    """Answer like a translation service integration of Home Assistant."""
+    calls = []
+
+    async def languages(call):
+        return {"languages": [{"code": code} for code in codes]}
+
+    async def translate_text(call):
+        calls.append(dict(call.data))
+        if translate is not None:
+            return translate(call)
+        return {"translations": [{"text": f"{domain}: {text}"} for text in call.data["text"]]}
+
+    hass.services.async_register(domain, "get_languages", languages, supports_response=SupportsResponse.ONLY)
+    hass.services.async_register(domain, "translate_text", translate_text, supports_response=SupportsResponse.OPTIONAL)
+    if usage is not None:
+
+        async def get_usage(call):
+            return usage
+
+        hass.services.async_register(domain, "get_usage", get_usage, supports_response=SupportsResponse.ONLY)
+    return calls
+
+
+def add_loaded_account(hass, domain, title):
+    account = MockConfigEntry(domain=domain, title=title, state=ConfigEntryState.LOADED)
+    account.add_to_hass(hass)
+    return account
+
+
+@pytest.fixture
+def example_integration(frontend_ready):
+    folder = frontend_ready / "custom_components/example"
+    (folder / "translations").mkdir(parents=True)
+    (folder / "manifest.json").write_text('{"name":"Example"}')
+    (folder / "translations" / "en.json").write_text('{"one":"Open"}')
+    return folder
+
+
+async def test_setup_offers_every_installed_service_and_stores_the_choice(hass, frontend_ready):
+    deepl = add_loaded_account(hass, DEEPL, "DeepL (Free)")
+    google = add_loaded_account(hass, GOOGLE, "Google Translate")
+    flow = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    assert flow["type"] == "form"
+    assert set(flow["data_schema"].schema) >= {"deepl_entry", "google_entry", "default_provider"}
+    with patch(
+        "custom_components.custom_integration_translator.async_setup_entry",
+        new=AsyncMock(return_value=True),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            flow["flow_id"],
+            {"deepl_entry": deepl.entry_id, "google_entry": google.entry_id, "default_provider": GOOGLE},
+        )
+    assert result["type"] == "create_entry"
+    assert result["data"] == {"providers": {DEEPL: deepl.entry_id, GOOGLE: google.entry_id}}
+    assert result["options"]["default_provider"] == GOOGLE
+
+
+async def test_google_alone_is_enough_to_set_up(hass, frontend_ready):
+    google = add_loaded_account(hass, GOOGLE, "Google Translate")
+    flow = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    assert set(flow["data_schema"].schema) == {"google_entry"}
+    with patch(
+        "custom_components.custom_integration_translator.async_setup_entry",
+        new=AsyncMock(return_value=True),
+    ):
+        result = await hass.config_entries.flow.async_configure(flow["flow_id"], {"google_entry": google.entry_id})
+    assert result["data"] == {"providers": {GOOGLE: google.entry_id}}
+    assert "default_provider" not in result["options"]
+
+
+async def test_the_workspace_lists_services_with_their_own_languages(hass, example_integration):
+    register_services(hass, DEEPL, ["DE", "FR"])
+    register_services(hass, GOOGLE, ["de", "pt", "zh-CN"])
+    deepl = add_loaded_account(hass, DEEPL, "DeepL")
+    google = add_loaded_account(hass, GOOGLE, "Google")
+    runtime = Runtime(
+        hass, MockConfigEntry(domain=DOMAIN, data={"providers": {DEEPL: deepl.entry_id, GOOGLE: google.entry_id}})
+    )
+    settings = await dispatch(runtime, {"action": "settings"})
+    assert [(item["key"], item["name"]) for item in settings["providers"]] == [(DEEPL, "DeepL"), (GOOGLE, "Google")]
+    assert settings["provider"] == DEEPL and settings["fallback"] is False
+    assert settings["languages"] == ["de", "fr"]  # only the preferred service unless another may take over
+    assert {item["key"]: item["languages"] for item in settings["providers"]}[GOOGLE] == ["de", "pt", "pt-BR", "zh-Hans"]
+    accounts = {"providers": {DEEPL: deepl.entry_id, GOOGLE: google.entry_id}}
+    takeover = Runtime(hass, MockConfigEntry(domain=DOMAIN, data=accounts, options={"provider_fallback": True}))
+    assert (await dispatch(takeover, {"action": "settings"}))["languages"] == ["de", "fr", "pt", "pt-BR", "zh-Hans"]
+
+
+async def test_a_service_can_be_chosen_per_translation(hass, example_integration):
+    deepl_calls = register_services(hass, DEEPL, ["DE"])
+    google_calls = register_services(hass, GOOGLE, ["de"])
+    deepl = add_loaded_account(hass, DEEPL, "DeepL")
+    google = add_loaded_account(hass, GOOGLE, "Google")
+    runtime = Runtime(
+        hass, MockConfigEntry(domain=DOMAIN, data={"providers": {DEEPL: deepl.entry_id, GOOGLE: google.entry_id}}, options={"automatic_checks": False})
+    )
+    detail = await dispatch(runtime, {"action": "detail", "domain": "example", "language": "de"})
+    request = {"action": "translate", "domain": "example", "language": "de", "revision": detail["revision"], "paths": [["one"]]}
+    result = await dispatch(runtime, {**request, "provider": GOOGLE})
+    assert result == {"provider": GOOGLE, "provider_name": "Google"}
+    assert google_calls[0]["config_entry_id"] == google.entry_id and not deepl_calls
+    assert "google_translator: Open" in (example_integration / "translations/de.json").read_text()
+    detail = await dispatch(runtime, {"action": "detail", "domain": "example", "language": "de"})
+    result = await dispatch(runtime, {**request, "revision": detail["revision"]})
+    assert result["provider"] == DEEPL and deepl_calls[0]["config_entry_id"] == deepl.entry_id
+    assert deepl_calls[0]["target_language"] == "DE" and google_calls[0]["target_language"] == "de"
+
+
+async def test_the_takeover_names_the_service_that_translated(hass, example_integration):
+    def refuse(call):
+        raise HomeAssistantError("quota used up")
+
+    register_services(hass, DEEPL, ["DE"], translate=refuse)
+    register_services(hass, GOOGLE, ["de"])
+    runtime = Runtime(
+        hass,
+        MockConfigEntry(
+            domain=DOMAIN,
+            data={"providers": {DEEPL: "d", GOOGLE: "g"}},
+            options={"automatic_checks": False, "provider_fallback": True},
+        ),
+    )
+    detail = await dispatch(runtime, {"action": "detail", "domain": "example", "language": "de"})
+    result = await dispatch(
+        runtime,
+        {"action": "translate", "domain": "example", "language": "de", "revision": detail["revision"], "paths": [["one"]]},
+    )
+    assert result == {"provider": GOOGLE, "provider_name": "Google"}
+
+
+async def test_usage_is_asked_from_the_chosen_service_and_labelled(hass, frontend_ready):
+    register_services(hass, DEEPL, ["DE"], usage={"available": True, "character_count": 1, "character_limit": 10, "characters_remaining": 9, "unlimited": False})
+    register_services(hass, GOOGLE, ["de"], usage={"available": True, "estimated": True, "character_count": 5, "character_limit": None, "characters_remaining": None, "unlimited": True})
+    runtime = Runtime(hass, MockConfigEntry(domain=DOMAIN, data={"providers": {DEEPL: "d", GOOGLE: "g"}}))
+    usage = await dispatch(runtime, {"action": "usage"})
+    assert (usage["provider"], usage["provider_name"], usage["character_limit"]) == (DEEPL, "DeepL", 10)
+    usage = await dispatch(runtime, {"action": "usage", "provider": GOOGLE})
+    assert (usage["provider_name"], usage["estimated"], usage["unlimited"]) == ("Google", True, True)
+
+
+async def test_discovery_checks_use_every_service_language(hass, frontend_ready):
+    """A language only the second service offers is still worth a suggestion."""
+    from unittest.mock import Mock
+
+    register_services(hass, DEEPL, ["FR"])
+    register_services(hass, GOOGLE, ["de"])
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"providers": {DEEPL: "d", GOOGLE: "g"}},
+        options={"notify_missing": True, "repair_missing": False},
+    )
+    runtime = Runtime(hass, entry)
+    runtime.catalog.scan = Mock(return_value=[{"domain": "new", "name": "New", "missing": 1, "exists": False}])
+    await runtime.refresh()
+    assert runtime.alerts == {"new_de"}
+
+
+async def test_options_choose_accounts_default_service_and_takeover(hass, frontend_ready):
+    deepl = add_loaded_account(hass, DEEPL, "DeepL")
+    google = add_loaded_account(hass, GOOGLE, "Google")
+    register_services(hass, DEEPL, ["DE"])
+    entry = MockConfigEntry(domain=DOMAIN, data={"deepl_entry": deepl.entry_id})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    options = hass.config_entries.options
+    flow = await options.async_init(entry.entry_id)
+    assert "providers" in flow["menu_options"]
+    form = await options.async_configure(flow["flow_id"], {"next_step_id": "providers"})
+    assert form["type"] == "form" and set(form["data_schema"].schema) >= {"provider_fallback", "default_provider"}
+    result = await options.async_configure(
+        flow["flow_id"],
+        {"deepl_entry": deepl.entry_id, "google_entry": google.entry_id, "default_provider": GOOGLE, "provider_fallback": True},
+    )
+    await hass.async_block_till_done()
+    assert result["type"] == "create_entry"
+    assert entry.data == {"providers": {DEEPL: deepl.entry_id, GOOGLE: google.entry_id}}
+    assert entry.options["default_provider"] == GOOGLE and entry.options["provider_fallback"] is True
+    assert hass.data[DOMAIN].provider.key == GOOGLE
+
+
+async def test_preferences_offer_the_languages_of_all_services(hass, frontend_ready):
+    register_services(hass, DEEPL, ["DE"])
+    register_services(hass, GOOGLE, ["de", "pt"])
+    entry = MockConfigEntry(domain=DOMAIN, data={"providers": {DEEPL: "d", GOOGLE: "g"}})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    flow = await hass.config_entries.options.async_init(entry.entry_id)
+    form = await hass.config_entries.options.async_configure(flow["flow_id"], {"next_step_id": "preferences"})
+    selector = next(iter(form["data_schema"].schema.values()))
+    assert selector.config["options"] == ["system", "de", "pt", "pt-BR"]
+
+
+async def test_a_translator_set_up_for_deepl_alone_still_works_and_notices_google(hass, frontend_ready):
+    register_services(hass, DEEPL, ["DE"])
+    register_services(hass, GOOGLE, ["de"])
+    entry = MockConfigEntry(domain=DOMAIN, data={"deepl_entry": "account"})
+    runtime = Runtime(hass, entry)
+    assert [item.key for item in runtime.providers.all()] == [DEEPL]
+    add_loaded_account(hass, GOOGLE, "Google")
+    assert [item.key for item in runtime.providers.all()] == [DEEPL, GOOGLE]

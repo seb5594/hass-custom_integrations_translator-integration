@@ -19,7 +19,7 @@ from .discovery import (
     background_enabled,
     monitor,
 )
-from .provider import DeepLProvider
+from .providers import ProviderSet
 
 _LOGGER = logging.getLogger(__name__)
 LANGUAGE_CHECK_TIMEOUT = 15
@@ -35,7 +35,7 @@ class Runtime:
         self.hass = hass
         self.entry = entry
         self.catalog = Catalog(hass.config.config_dir)
-        self.provider = DeepLProvider(hass, entry.data["deepl_entry"])
+        self.providers = ProviderSet(hass, entry)
         self.lock = file_lock(hass)
         self.active = True
         self.alerts = set()
@@ -45,6 +45,11 @@ class Runtime:
         self.overview_items = {}
 
     @property
+    def provider(self):
+        """The preferred translation service."""
+        return self.providers.default
+
+    @property
     def language(self):
         language = self.entry.options.get("language", "system")
         return self.hass.config.language if language == "system" else language
@@ -52,7 +57,13 @@ class Runtime:
     async def io(self, func, *args):
         return await self.hass.async_add_executor_job(func, *args)
 
-    async def translate(self, domain, language, revision, paths, terms):
+    async def supported_languages(self):
+        """The Home Assistant languages at least one translation service can translate into."""
+        by_provider = await self.providers.languages()
+        return set().union(*by_provider.values())
+
+    async def translate(self, domain, language, revision, paths, terms, provider=None):
+        """Translate the selected phrases; returns the service that did it."""
         async with self.lock:
             detail = await self.io(self.catalog.detail, domain, language)
             if not self.active or detail["conflict"] or detail["revision"] != revision:
@@ -61,11 +72,12 @@ class Runtime:
             rows = [row for row in detail["rows"] if tuple(row["path"]) in selected]
             if not rows or len(rows) != len(selected):
                 raise CatalogError("Invalid phrase selection")
-            values = await self.provider.translate(
+            values, used = await self.providers.translate(
                 [row["source"] for row in rows],
                 detail["source_language"],
                 language,
                 terms,
+                preferred=provider,
             )
             if not self.active:
                 raise CatalogError("Integration disabled")
@@ -74,6 +86,7 @@ class Runtime:
                 for row, value in zip(rows, values, strict=True)
             }
             await self.io(self.catalog.save, domain, language, revision, changes)
+            return used
 
     async def restore(self, domain, language, revision=None):
         async with self.lock:
@@ -97,7 +110,7 @@ class Runtime:
         language = self.language
         try:
             supported = await asyncio.wait_for(
-                self.provider.languages(), timeout=LANGUAGE_CHECK_TIMEOUT
+                self.supported_languages(), timeout=LANGUAGE_CHECK_TIMEOUT
             )
         except (HomeAssistantError, asyncio.TimeoutError, OSError, ValueError) as err:
             _LOGGER.debug("Discovery postponed: %s", str(err) or type(err).__name__)

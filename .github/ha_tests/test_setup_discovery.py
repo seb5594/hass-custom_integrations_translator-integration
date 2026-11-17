@@ -29,7 +29,7 @@ async def test_confirm_then_choose_account(hass, enable_custom_integrations):
     assert duplicate["reason"] == "already_in_progress"
     # Losing the provider must not silently accept setup or discard the suggestion.
     retry = await hass.config_entries.flow.async_configure(flow["flow_id"], {})
-    assert retry["errors"] == {"base": "deepl_required"}
+    assert retry["errors"] == {"base": "provider_required"}
     account = MockConfigEntry(
         domain=DEEPL, title="DeepL", state=ConfigEntryState.LOADED
     )
@@ -46,7 +46,7 @@ async def test_confirm_then_choose_account(hass, enable_custom_integrations):
         await hass.async_block_till_done()
     assert result["type"] == "create_entry"
     assert result["result"].unique_id == DOMAIN
-    assert result["data"] == {"deepl_entry": account.entry_id}
+    assert result["data"] == {"providers": {DEEPL: account.entry_id}}
 
 
 @pytest.mark.parametrize("kind", ["configured", "disabled", "ignored"])
