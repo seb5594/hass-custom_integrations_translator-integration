@@ -3,24 +3,26 @@
   "config": {
     "step": {
       "user": {
-        "title": "Choose a DeepL account",
-        "description": "Selected phrases will be translated through this configured account.",
+        "title": "Choose translation services",
+        "description": "Selected phrases are translated through these accounts. With several services you choose the preferred one here and can switch per translation later.",
         "data": {
-          "deepl_entry": "DeepL account"
+          "deepl_entry": "DeepL account",
+          "google_entry": "Google Translator account",
+          "default_provider": "Preferred service"
         }
       },
       "discovery_confirm": {
         "title": "Custom Integration Translator",
-        "description": "Translate missing phrases in your custom integrations with your configured DeepL account. Review source and target text, select phrases and protect product names before translating. Set up the translator now?"
+        "description": "Translate missing phrases in your custom integrations with DeepL or Google Translate, whichever you have set up. Review source and target text, select phrases and protect product names before translating. Set up the translator now?"
       }
     },
     "abort": {
-      "deepl_required": "Set up [DeepL Translator]({deepl_url}) first, then try again.",
-      "already_configured": "The translator is already configured."
+      "already_configured": "The translator is already configured.",
+      "provider_required": "Set up a translation service first ({providers}), then try again."
     },
     "flow_title": "{name}",
     "error": {
-      "deepl_required": "No DeepL account is currently available. Set up or enable DeepL Translator, then try again."
+      "provider_required": "No translation service is currently available. Set up or enable DeepL Translator or Google Translator, then try again."
     }
   },
   "options": {
@@ -31,7 +33,8 @@
           "preferences": "Language and sidebar",
           "deactivate": "Disable translator…",
           "automation": "Automatic checks",
-          "notifications": "Notifications"
+          "notifications": "Notifications",
+          "providers": "Translation services"
         }
       },
       "preferences": {
@@ -74,11 +77,21 @@
           "repair_missing": "Create Repairs issues for missing phrases",
           "overview_sensor": "Enable overview sensor"
         }
+      },
+      "providers": {
+        "title": "Translation services",
+        "description": "Choose the account of each service. The preferred service is used unless you pick another one while translating. With the takeover enabled, another service translates when the chosen one cannot, for example because its quota is used up or it does not offer the language.",
+        "data": {
+          "deepl_entry": "DeepL account",
+          "google_entry": "Google Translator account",
+          "default_provider": "Preferred service",
+          "provider_fallback": "Let another service take over on failure"
+        }
       }
     },
     "abort": {
       "deactivated": "The translator is being disabled.",
-      "provider_unavailable": "The configured DeepL account is unavailable."
+      "provider_unavailable": "No translation service is available."
     },
     "error": {
       "restore_failed": "Cleanup stopped. Review the affected file in the workspace."

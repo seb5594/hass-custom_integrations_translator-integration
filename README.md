@@ -21,32 +21,42 @@
 </p>
 <!-- header:end -->
 
-Translate individual phrases in HACS integrations from within Home Assistant. Compare source and target text, fill missing phrases or retranslate a selection using your existing DeepL account.
+Translate individual phrases in HACS integrations from within Home Assistant. Compare source and target text, fill missing phrases or retranslate a selection using your existing DeepL or Google Translator account, or both.
 
 [Deutsch](README.de.md)
 
 ## Installation
 
-1. Use Home Assistant 2023.7.0 or later. Install and configure [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) first.
+1. Use Home Assistant 2023.7.0 or later. Install and configure [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration), [Google Translator](https://github.com/seb5594/hass-google_translator-integration) or both first. Google Translator works without an account and without cost; DeepL needs an API key.
 2. For manual installation, copy `custom_components/custom_integration_translator` into the matching directory under your Home Assistant configuration folder and restart Home Assistant. For a published release, add this repository to HACS as a custom repository of type **Integration**.
-3. With **DeepL Translator 1.0.0b4 or newer** configured, a **Discovered** card appears under **Settings → Devices & services** after HACS/Marketplace installation or startup. Confirm setup and select your DeepL account. Alternatively, use **Add integration → Custom Integration Translator**. Home Assistant's **Ignore** option hides the suggestion persistently. Manual setup still works with older DeepL versions. The discovery card appears in the integrations overview; the associated device is created after setup.
+3. With **DeepL Translator 1.0.0b4 or newer** or **Google Translator** configured, a **Discovered** card appears under **Settings → Devices & services** after HACS/Marketplace installation or startup. Confirm setup and select an account for each service. Alternatively, use **Add integration → Custom Integration Translator**. Home Assistant's **Ignore** option hides the suggestion persistently. Manual setup still works with older DeepL versions. The discovery card appears in the integrations overview; the associated device is created after setup.
 4. As an administrator, press **Open translations** on the integration's device, call `custom_integration_translator.open_workspace`, or visit `/custom-integration-translator` on your instance. Refresh the browser after initial setup if needed. Automations without a user context post a notification linking to the workspace.
 
 ## Translate selected phrases
 
 The list shows missing and total phrases, for example **2 missing of 5** or **All 2 missing**. The integration's friendly name is prefilled as a protected term alongside saved defaults. You can edit or remove it; edits are retained per integration while the workspace is open.
 
-The target defaults to the Home Assistant system language. Available targets are the intersection of HA language keys and languages reported by the selected DeepL account. Under **Configure → Language and sidebar**, you can override the default, save protected words and opt into a sidebar shortcut.
+The target defaults to the Home Assistant system language. Available targets are the intersection of HA language keys and languages reported by the selected service. Languages Google spells differently are matched for you (for example `he` to `iw`, `zh-Hans` to `zh-CN`). Under **Configure → Language and sidebar**, you can override the default, save protected words and opt into a sidebar shortcut.
 
 Choose an integration. Missing phrases are preselected. Compare the source and current value, then press **Translate selection**. To inspect a complete translation, turn off **Hide translated integrations**. Incomplete integrations come first. Names are sorted alphabetically within each group.
 
 Large translations display 100 phrases per page. Search source text, existing translations or keys to find specific phrases. Searching and paging preserve your selection; the selected count includes hidden phrases. **Select all** and **Missing only** replace the selection with matching results across all pages. **Clear selection** clears the entire selection. Only the visible rows are rendered, and bulk selection updates existing checkboxes without rebuilding the editor.
 
 - English `translations/en.json` is preferred, followed by English `strings.json` and another available developer translation. The workspace displays the source language. Generated files are excluded as translation sources.
-- Only selected strings are sent to DeepL. Other target entries, including target-only keys, are preserved. Previously generated phrases are labeled **DeepL**.
+- Only selected strings are sent to DeepL. Other target entries, including target-only keys, are preserved. Previously generated phrases are labeled as machine translated.
 - Identical selected source phrases are sent only once per translation request, reducing submitted characters. Each selected key still receives its translation.
-- Enter product names with their exact spelling, one per line. The provider masks protected terms and placeholders. An incomplete response or a changed protection marker cancels the write. Your DeepL account's usage terms apply.
+- Enter product names with their exact spelling, one per line. The provider masks protected terms and placeholders. An incomplete response or a changed protection marker cancels the write. The usage terms of the service you choose apply.
 - Restart Home Assistant and refresh the browser after writing to update cached translations.
+
+## Translation services
+
+DeepL and Google Translator can be used next to each other:
+
+- **Found automatically.** A service that is set up after the translator shows up in the workspace without changing anything here. With several accounts of one service, choose one under **Configure → Translation services**.
+- **Chosen per translation.** With more than one service, the workspace has a **Translation service** selector, and the language list follows the selected service. The preferred service, also set under **Configure → Translation services**, is preselected.
+- **Optional takeover.** *Let another service take over on failure* lets the next service translate when the chosen one cannot, for example because its quota is used up or it does not offer the language. It is off by default, so text only goes to a service you picked; the result message names the service that translated.
+
+The services themselves can be configured in `configuration.yaml` (`deepl_translator:` and `google_translator:`); see their projects.
 
 ## Discovery and recovery
 
@@ -67,7 +77,7 @@ Under **Configure → Automatic checks**, disable all background checks with the
 
 Before translation, the workspace shows selected phrases, unique texts, an approximate word count and estimated transmitted characters. The calculation uses the same protection markers and duplicate removal as translation. [DeepL counts source Unicode code points, including whitespace](https://support.deepl.com/hc/en-us/articles/360020685720-Usage-count-and-billing-in-DeepL-API); words are informational. Protected terms are replaced by markers, and those marker characters also count.
 
-For the account balance, update DeepL Translator to **2026.11.06.1 or newer**. The workspace uses its public `get_usage` action when opening an editor, after a translation attempt and when you press **Refresh account usage**. Changing checkboxes or terms only recalculates on Home Assistant; it does not query DeepL or translate text. It shows the reported remaining quota and estimated balance after your selection. Cache hits, concurrent account usage and reporting delays can affect the result. Successful partial batches can consume quota even if a later batch fails and no file is saved. A missing API, failed usage request or OAuth account displays an unknown balance; uncapped accounts show no fixed limit. No fixed subscription allowance is assumed.
+For the DeepL account balance, update DeepL Translator to **2026.11.06.1 or newer**. The workspace uses its public `get_usage` action when opening an editor, after a translation attempt and when you press **Refresh account usage**. Changing checkboxes or terms only recalculates on Home Assistant; it does not query DeepL or translate text. It shows the reported remaining quota and estimated balance after your selection. Cache hits, concurrent account usage and reporting delays can affect the result. Successful partial batches can consume quota even if a later batch fails and no file is saved. A missing API, failed usage request or OAuth account displays an unknown balance; uncapped accounts show no fixed limit. No fixed subscription allowance is assumed. Google reports no usage at all, so Google Translator counts the characters it sent each month and the workspace shows that count against its monthly limit, labelled as counted by the integration.
 
 ## Compatibility
 
@@ -75,9 +85,9 @@ Supports Home Assistant Core 2023.7 and newer. Service responses, introduced in 
 
 ## Development
 
-[AI provider feasibility and the recommended integration path](docs/AI_PROVIDERS.md) documents the evaluated options. This release still translates through DeepL; an optional AI Task adapter is proposed for a follow-up.
+[AI provider feasibility and the recommended integration path](docs/AI_PROVIDERS.md) documents the evaluated options. Translation goes through DeepL or Google Translator; an optional AI Task adapter is proposed for a follow-up.
 
-Versions use `YYYY.MM.DD.BUILD`. The adapter in `provider.py` uses the public `deepl_translator.get_languages` and `deepl_translator.translate_text` actions. Another provider can implement language discovery and phrase translation independently of the file recovery and review interface.
+Versions use `YYYY.MM.DD.BUILD`. The adapters in `provider.py` use the public `get_languages`, `translate_text` and `get_usage` actions of `deepl_translator` and `google_translator`, which answer in the same shape. Another provider can implement language discovery and phrase translation independently of the file recovery and review interface.
 
 <!-- support:begin (generated, shared text) -->
 ## Say thanks

@@ -13,6 +13,7 @@ class TranslatorWorkspace extends HTMLElement {
     this.search = "";
     this.page = 0;
     this.termPreferences = new Map();
+    this.provider = "";
     this.estimateId = 0;
     this.usageId = 0;
     this.root = this.shadowRoot;
@@ -47,6 +48,7 @@ class TranslatorWorkspace extends HTMLElement {
     this.started = true;
     this.run(async () => {
       this.settings = await this.call("settings");
+      this.provider = this.settings.provider || "";
       this.terms = this.settings.terms || "";
       const query = this.popup ? new URLSearchParams() : new URLSearchParams(location.search);
       const choices = this.languages();
@@ -60,7 +62,19 @@ class TranslatorWorkspace extends HTMLElement {
       }
     });
   }
-  languages() { return [...new Set([...this.settings.languages, ...this.settings.recoverable])].sort(); }
+  // The languages of the chosen service, or of all of them when another service may take over.
+  supportedLanguages() {
+    const providers = this.settings.providers || [];
+    if (!providers.length) return this.settings.languages;
+    const chosen = providers.find(item => item.key === this.provider);
+    const pool = this.settings.fallback || !chosen ? providers : [chosen];
+    return [...new Set(pool.flatMap(item => item.languages))];
+  }
+  providerName() {
+    const chosen = (this.settings?.providers || []).find(item => item.key === this.provider);
+    return chosen?.name || this.t("dem Übersetzungsdienst", "the translation service");
+  }
+  languages() { return [...new Set([...this.supportedLanguages(), ...this.settings.recoverable])].sort(); }
   t(de, en) { return (this.ha?.language || "en").startsWith("de") ? de : en; }
   label(code) {
     try { return new Intl.DisplayNames([this.ha.language], {type:"language"}).of(code) + ` (${code})`; }
@@ -102,7 +116,7 @@ class TranslatorWorkspace extends HTMLElement {
     this.quotaLoading = true;
     this.updateUsage();
     try {
-      const quota = await this.call("usage");
+      const quota = await this.call("usage", this.provider ? {provider:this.provider} : {});
       if (id === this.usageId) this.quota = quota;
     } catch {
       if (id === this.usageId) this.quota = {available:false, reason:"unavailable"};
@@ -144,19 +158,26 @@ class TranslatorWorkspace extends HTMLElement {
       ? t("Verbrauchsschätzung derzeit nicht verfügbar.", "Usage estimate is currently unavailable.")
       : t(`${estimate.selected_phrases} ${estimate.selected_phrases === 1 ? "Phrase" : "Phrasen"} · ${estimate.unique_phrases} ${estimate.unique_phrases === 1 ? "unterschiedlicher Text" : "unterschiedliche Texte"} · ca. ${estimate.words} Wörter · geschätzt ${estimate.characters} übertragene Zeichen.`,
           `${estimate.selected_phrases} ${estimate.selected_phrases === 1 ? "phrase" : "phrases"} · ${estimate.unique_phrases} unique ${estimate.unique_phrases === 1 ? "text" : "texts"} · about ${estimate.words} words · estimated ${estimate.characters} transmitted characters.`);
+    const name = quota?.provider_name || this.providerName();
     if (this.quotaLoading) text += " " + t("Kontostand wird abgefragt …", "Checking account usage …");
     else if (quota?.available) {
+      // Google reports no usage itself; its figures are counted by the integration and say so.
+      const counted = quota.estimated;
       text += "\n" + (quota.unlimited
-        ? t(`DeepL meldet ${quota.character_count} verbrauchte Zeichen und keine feste Zeichengrenze.`, `DeepL reports ${quota.character_count} used characters and no fixed character limit.`)
-        : t(`DeepL-Kontostand: ${quota.characters_remaining} von ${quota.character_limit} Zeichen übrig.`, `DeepL account: ${quota.characters_remaining} of ${quota.character_limit} characters remaining.`));
+        ? (counted
+          ? t(`${name}: ${quota.character_count} Zeichen in diesem Monat gezählt, kein Monatslimit gesetzt.`, `${name}: ${quota.character_count} characters counted this month, no monthly limit set.`)
+          : t(`${name} meldet ${quota.character_count} verbrauchte Zeichen und keine feste Zeichengrenze.`, `${name} reports ${quota.character_count} used characters and no fixed character limit.`))
+        : (counted
+          ? t(`${name}-Budget: ${quota.characters_remaining} von ${quota.character_limit} Zeichen in diesem Monat übrig (von der Integration gezählt).`, `${name} budget: ${quota.characters_remaining} of ${quota.character_limit} characters remaining this month (counted by the integration).`)
+          : t(`${name}-Kontostand: ${quota.characters_remaining} von ${quota.character_limit} Zeichen übrig.`, `${name} account: ${quota.characters_remaining} of ${quota.character_limit} characters remaining.`)));
       if (!quota.unlimited && estimate && !estimate.error) {
         const remaining = quota.characters_remaining - estimate.characters;
         text += "\n" + (remaining < 0
           ? t(`Die Auswahl überschreitet den gemeldeten Rest um voraussichtlich ${-remaining} Zeichen.`, `This selection is estimated to exceed the reported balance by ${-remaining} characters.`)
           : t(`Nach dieser Auswahl voraussichtlich ${remaining} Zeichen übrig.`, `Estimated remaining after this selection: ${remaining} characters.`));
       }
-    } else if (quota?.reason === "update_required") text += " " + t("Für den Kontostand bitte DeepL Translator auf 2026.11.06.1 oder neuer aktualisieren.", "Update DeepL Translator to 2026.11.06.1 or newer to show account usage.");
-    else if (quota?.reason === "unsupported") text += " " + t("Diese DeepL-Anmeldung (OAuth) liefert kein Kontingent. Der Rest ist unbekannt.", "This DeepL sign-in (OAuth) does not provide quota data. Remaining usage is unknown.");
+    } else if (quota?.reason === "update_required") text += " " + t(`Für den Kontostand bitte ${name} Translator aktualisieren.`, `Update ${name} Translator to show account usage.`);
+    else if (quota?.reason === "unsupported") text += " " + t(`Diese ${name}-Anmeldung (OAuth) liefert kein Kontingent. Der Rest ist unbekannt.`, `This ${name} sign-in (OAuth) does not provide quota data. Remaining usage is unknown.`);
     else text += " " + t("Kontostand derzeit nicht verfügbar; der Rest ist unbekannt.", "Account usage is currently unavailable; remaining usage is unknown.");
     box.textContent = text;
     const refresh = this.root.querySelector("#refresh-usage");
@@ -176,6 +197,17 @@ class TranslatorWorkspace extends HTMLElement {
     if (target.id === "language") {
       this.lang = target.value;
       this.run(() => this.list());
+    } else if (target.id === "provider") {
+      this.provider = target.value;
+      if (!this.supportedLanguages().includes(this.lang)) {
+        // The other service does not offer this language: let the user choose again.
+        this.lang = "";
+        this.item = null;
+        this.items = [];
+      }
+      this.estimateKey = null;
+      this.render();
+      if (this.item) { this.queueEstimate(); this.loadUsage(); }
     } else if (target.id === "hide") {
       this.hiddenComplete = target.checked;
       this.render();
@@ -189,7 +221,7 @@ class TranslatorWorkspace extends HTMLElement {
     const submit = this.root.querySelector("#translate");
     if (!submit) return;
     submit.disabled = this.busy || !this.selected.size || this.item.conflict ||
-      !this.settings.languages.includes(this.lang);
+      !this.supportedLanguages().includes(this.lang);
     submit.textContent = this.t("Auswahl übersetzen", "Translate selection") + ` (${this.selected.size})`;
     this.root.querySelector("#selection-status").textContent = this.t(
       `${this.selected.size} Phrasen ausgewählt – auch außerhalb dieser Ansicht.`,
@@ -228,11 +260,16 @@ class TranslatorWorkspace extends HTMLElement {
     if (id === "translate") {
       const paths = [...this.selected].map(index => this.item.rows[index].path);
       return this.run(async () => {
+        let result;
         try {
-          await this.call("translate", {...data, paths, revision:this.item.revision, terms:this.terms.split("\n")});
+          result = await this.call("translate", {
+            ...data, paths, revision:this.item.revision, terms:this.terms.split("\n"),
+            ...(this.provider ? {provider:this.provider} : {}),
+          });
         } catch (error) { this.loadUsage(); throw error; }
         await this.detail(data.domain);
-        this.message = this.t(`${paths.length} Phrasen gespeichert.`, `Saved ${paths.length} phrases.`) + " " +
+        const used = result?.provider_name ? ` (${result.provider_name})` : "";
+        this.message = this.t(`${paths.length} Phrasen gespeichert${used}.`, `Saved ${paths.length} phrases${used}.`) + " " +
           this.t("Nach einem Neustart von Home Assistant und Neuladen des Browsers werden die Änderungen sichtbar.",
                  "Restart Home Assistant and refresh your browser to see the changes.");
       });
@@ -290,14 +327,14 @@ class TranslatorWorkspace extends HTMLElement {
         <button data-page="1">${t("Weiter","Next")}</button></nav>
       <div id="phrases"></div>
       <label class="terms">${t("Geschützte Wörter, eines pro Zeile","Protected words, one per line")}
-        <textarea id="terms" rows="3" placeholder="Home Assistant&#10;DeepL">${escapeHtml(this.terms)}</textarea></label>
-      <p>${t("Schreibweise beachten. Nur die ausgewählten Quelltexte werden an DeepL übergeben.",
-            "Match the spelling exactly. Only selected source texts are submitted to DeepL.")}</p>
+        <textarea id="terms" rows="3" placeholder="Home Assistant&#10;ACME">${escapeHtml(this.terms)}</textarea></label>
+      <p>${t(`Schreibweise beachten. Nur die ausgewählten Quelltexte werden an ${this.providerName()} übergeben.`,
+            `Match the spelling exactly. Only selected source texts are submitted to ${this.providerName()}.`)}</p>
       <section aria-label="${t("Verbrauch und Kontingent","Usage and quota")}">
         <p id="usage" role="status" aria-live="polite"></p>
         <button id="refresh-usage">${t("Kontostand aktualisieren","Refresh account usage")}</button>
-        <details><summary>${t("Wie wird der Verbrauch berechnet?", "How is usage calculated?")}</summary><small>${t("DeepL zählt Zeichen (Unicode-Codepunkte), einschließlich Leerzeichen und Schutzmarkern. Doppelte Texte zählen einmal pro Auftrag. Die Wortzahl ist nur eine Orientierung. Cache-Treffer, weitere Kontonutzer und verzögerte Verbrauchsmeldungen können das Ergebnis verändern. Auch Teilaufträge vor einem Fehler können Kontingent verbrauchen.",
-          "DeepL counts characters (Unicode code points), including whitespace and protection markers. Duplicate texts count once per request. Word count is only a guide. Cache hits, other account users and reporting delays can change the result. Partial batches before an error may also consume quota.")}</small></details>
+        <details><summary>${t("Wie wird der Verbrauch berechnet?", "How is usage calculated?")}</summary><small>${t(`${this.providerName()} zählt Zeichen (Unicode-Codepunkte), einschließlich Leerzeichen und Schutzmarkern. Doppelte Texte zählen einmal pro Auftrag. Die Wortzahl ist nur eine Orientierung. Cache-Treffer, weitere Kontonutzer und verzögerte Verbrauchsmeldungen können das Ergebnis verändern. Auch Teilaufträge vor einem Fehler können Kontingent verbrauchen.`,
+          `${this.providerName()} counts characters (Unicode code points), including whitespace and protection markers. Duplicate texts count once per request. Word count is only a guide. Cache hits, other account users and reporting delays can change the result. Partial batches before an error may also consume quota.`)}</small></details>
       </section>
       <button class="primary" id="translate"></button>
       ${item.managed ? `<hr><button id="restore" ${item.conflict && !item.original?"disabled":""}>${item.original ? t("Original wiederherstellen","Restore original") : t("Erzeugte Datei löschen","Delete generated file")}</button>` : ""}
@@ -315,7 +352,7 @@ class TranslatorWorkspace extends HTMLElement {
       const r = item.rows[index];
       return `<label class="phrase"><input type="checkbox" data-row="${index}" ${this.selected.has(index)?"checked":""}>
         <span><small>${escapeHtml(item.source_language)} · ${escapeHtml(r.path.join(" › "))}</small>${escapeHtml(r.source)}</span>
-        <span><small>${escapeHtml(this.lang)} · ${r.target === null ? t("fehlt","missing") : r.generated ? "DeepL" : t("Vorhandene Fassung","Existing translation")}</small>${r.target === null ? "—" : escapeHtml(r.target)}</span></label>`;
+        <span><small>${escapeHtml(this.lang)} · ${r.target === null ? t("fehlt","missing") : r.generated ? t("Maschinell übersetzt","Machine translated") : t("Vorhandene Fassung","Existing translation")}</small>${r.target === null ? "—" : escapeHtml(r.target)}</span></label>`;
     }).join("") || `<p>${item.rows.length ? t("Keine passenden Phrasen.","No matching phrases.") :
       t("Keine Phrasen in einer anderen Quelldatei gefunden.","No phrases found in a separate source file.")}</p>`;
     this.root.querySelector("[data-page='-1']").disabled = this.page === 0;
@@ -332,6 +369,14 @@ class TranslatorWorkspace extends HTMLElement {
       ? t("Nur fehlende Suchtreffer","Missing results only") : t("Nur fehlende","Missing only");
     this.updateSubmit();
   }
+  // Only shown when more than one translation service is set up.
+  providerPicker() {
+    const providers = this.settings?.providers || [];
+    if (providers.length < 2) return "";
+    return `<label>${this.t("Übersetzungsdienst", "Translation service")}
+      <select id="provider">${providers.map(item =>
+        `<option value="${escapeHtml(item.key)}"${this.provider === item.key ? " selected" : ""}${item.error ? " disabled" : ""}>${escapeHtml(item.name)}${item.error ? " – " + escapeHtml(item.error) : ""}</option>`).join("")}</select></label>`;
+  }
   render() {
     const t = this.t.bind(this);
     const options = this.settings ? this.languages().map(code =>
@@ -344,9 +389,9 @@ class TranslatorWorkspace extends HTMLElement {
       ${this.settings?.error ? `<p role="alert">${escapeHtml(this.settings.error)}</p>` : ""}
       ${this.busy ? `<p role="status">${t("Wird verarbeitet …","Working …")}</p>` : ""}
       ${this.message ? `<p role="status">${escapeHtml(this.message)}</p>` : ""}
-      <fieldset ${this.busy?"disabled":""}>${this.settings ? `<label>${t("Zielsprache","Target language")}
+      <fieldset ${this.busy?"disabled":""}>${this.settings ? `${this.providerPicker()}<label>${t("Zielsprache","Target language")}
         <select id="language">${this.lang ? "" : `<option disabled selected>${t("Sprache wählen","Choose language")}</option>`}${options}</select></label>
-        ${!this.lang ? `<p>${t("Die voreingestellte Sprache ist bei DeepL nicht verfügbar. Bitte eine angebotene Sprache wählen.","The default language is unavailable from DeepL. Choose an available language.")}</p>` :
+        ${!this.lang ? `<p>${t(`Die voreingestellte Sprache ist bei ${this.providerName()} nicht verfügbar. Bitte eine angebotene Sprache wählen.`,`The default language is unavailable from ${this.providerName()}. Choose an available language.`)}</p>` :
           this.item ? this.editor() : this.listView()}` : ""}</fieldset></main>
       <footer><a href="https://github.com/seb5594" target="_blank" rel="noopener noreferrer">More Developer's Home Assistant Content</a>
       <a href="https://paypal.me/seb5594" target="_blank" rel="noopener noreferrer">Support work</a><p>Made with 💖 in 🇩🇪</p></footer></article>`;

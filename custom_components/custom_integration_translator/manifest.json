@@ -2,7 +2,8 @@
   "domain": "custom_integration_translator",
   "name": "Custom Integration Translator",
   "after_dependencies": [
-    "deepl_translator"
+    "deepl_translator",
+    "google_translator"
   ],
   "categories": [
     "computers_network.cloud_developer_tools"
@@ -22,5 +23,5 @@
   "issue_tracker": "https://github.com/seb5594/hass-custom_integrations_translator-integration/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "2026.11.16.1"
+  "version": "2026.11.17.1"
 }
