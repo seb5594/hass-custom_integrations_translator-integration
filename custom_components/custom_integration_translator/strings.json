@@ -91,7 +91,7 @@
     },
     "abort": {
       "deactivated": "The translator is being disabled.",
-      "provider_unavailable": "No translation service is available."
+      "provider_unavailable": "Set up or enable [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) or [Google Translator](https://github.com/seb5594/hass-google_translator-integration), then try again."
     },
     "error": {
       "restore_failed": "Cleanup stopped. Review the affected file in the workspace."

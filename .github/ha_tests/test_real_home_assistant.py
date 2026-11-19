@@ -635,6 +635,7 @@ async def test_options_choose_accounts_default_service_and_takeover(hass, fronte
     assert entry.data == {"providers": {DEEPL: deepl.entry_id, GOOGLE: google.entry_id}}
     assert entry.options["default_provider"] == GOOGLE and entry.options["provider_fallback"] is True
     assert hass.data[DOMAIN].provider.key == GOOGLE
+    await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_preferences_offer_the_languages_of_all_services(hass, frontend_ready):
@@ -647,6 +648,7 @@ async def test_preferences_offer_the_languages_of_all_services(hass, frontend_re
     form = await hass.config_entries.options.async_configure(flow["flow_id"], {"next_step_id": "preferences"})
     selector = next(iter(form["data_schema"].schema.values()))
     assert selector.config["options"] == ["system", "de", "pt", "pt-BR"]
+    await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_a_translator_set_up_for_deepl_alone_still_works_and_notices_google(hass, frontend_ready):

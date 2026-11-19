@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026.11.17.1
+## 2026.11.19.1
 
 - Use Google Translator next to DeepL Translator. Either one is enough to set the translator up; services installed later show up on their own. With both, the workspace has a **Translation service** selector whose language list follows the chosen service, and the result names the service that translated.
 - Add **Configure → Translation services** to choose the account of each service, the preferred service and an optional takeover by the other service when the chosen one fails. The takeover is off by default.

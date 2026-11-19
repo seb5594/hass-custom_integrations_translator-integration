@@ -91,7 +91,7 @@
     },
     "abort": {
       "deactivated": "Der Translator wird deaktiviert.",
-      "provider_unavailable": "Es ist kein Übersetzungsdienst verfügbar."
+      "provider_unavailable": "Richte [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) oder [Google Translator](https://github.com/seb5594/hass-google_translator-integration) ein oder aktiviere ihn und versuche es erneut."
     },
     "error": {
       "restore_failed": "Die Bereinigung wurde angehalten. Prüfe die betroffene Datei in der Übersetzungsansicht."
