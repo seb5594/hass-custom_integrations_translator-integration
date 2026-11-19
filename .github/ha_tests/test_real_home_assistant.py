@@ -29,6 +29,9 @@ async def frontend_ready(hass, tmp_path, enable_custom_integrations):
     # These tests cover frontend registration; onboarding and socket binding are
     # unrelated. Browser tests separately exercise the actual HTTP server.
     hass.config.components.add("onboarding")
+    # The shared test plugin counts the manifest dependencies as loaded; this fixture sets up the
+    # real HTTP server (only its socket stays unbound), which the frontend needs.
+    hass.config.components.difference_update({"http", "frontend", "panel_custom"})
     with patch(
         "homeassistant.components.http.HomeAssistantHTTP.start", new=AsyncMock()
     ):
