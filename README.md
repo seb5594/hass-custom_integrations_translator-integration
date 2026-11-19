@@ -75,7 +75,7 @@ Supports Home Assistant Core 2023.7 and newer. Service responses, introduced in 
 
 [AI provider feasibility and the recommended integration path](docs/AI_PROVIDERS.md) documents the evaluated options. This release still translates through DeepL; an optional AI Task adapter is proposed for a follow-up.
 
-Versions use `YYYY.MM.DD.BUILD`. The adapter in `provider.py` uses the public `deepl_translator.get_languages` and `deepl_translator.translate_text` actions. Another provider can implement language discovery and phrase translation independently of the file recovery and review interface.
+Versions use `YYYY.MM.DD[.BUILD]`: the first build of a day has no suffix, later ones count `.1`, `.2`, … The adapter in `provider.py` uses the public `deepl_translator.get_languages` and `deepl_translator.translate_text` actions. Another provider can implement language discovery and phrase translation independently of the file recovery and review interface.
 
 <!-- support:begin (generated, shared text) -->
 ## Say thanks

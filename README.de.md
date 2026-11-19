@@ -48,6 +48,6 @@ Unterstützt Home Assistant Core ab 2023.7. Die seit Core 2023.7 verfügbaren Se
 
 ## Entwicklung
 
-Die Versionsnummer folgt `YYYY.MM.DD.BUILD`. Die DeepL-Anbindung in `provider.py` nutzt die HA-Aktionen `deepl_translator.get_languages` und `deepl_translator.translate_text`. Dateiverwaltung, Reparaturen und Oberfläche sind davon getrennt. Weitere Anbieter können dieselben Operationen für Sprachliste und Phrasenübersetzung implementieren.
+Die Versionsnummer folgt `YYYY.MM.DD[.BUILD]`: der erste Build eines Tages hat kein Suffix, weitere zählen `.1`, `.2`, … Die DeepL-Anbindung in `provider.py` nutzt die HA-Aktionen `deepl_translator.get_languages` und `deepl_translator.translate_text`. Dateiverwaltung, Reparaturen und Oberfläche sind davon getrennt. Weitere Anbieter können dieselben Operationen für Sprachliste und Phrasenübersetzung implementieren.
 
 [MIT License](LICENSE)
