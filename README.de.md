@@ -1,27 +1,37 @@
 # Custom Integration Translator
 
-Ergänze die Übersetzungen deiner HACS-Integrationen direkt in Home Assistant. Du siehst Quelltext und vorhandene Übersetzung nebeneinander und entscheidest für jede Phrase, ob DeepL sie bearbeiten soll.
+Ergänze die Übersetzungen deiner HACS-Integrationen direkt in Home Assistant. Du siehst Quelltext und vorhandene Übersetzung nebeneinander und entscheidest für jede Phrase, ob DeepL oder Google Übersetzer sie bearbeiten soll.
 
 [English](README.md)
 
 ## Einrichten
 
-1. Verwende Home Assistant ab Version 2023.7.0. Installiere zuerst [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) und richte dort dein DeepL-Konto ein.
+1. Verwende Home Assistant ab Version 2023.7.0. Installiere zuerst [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration), [Google Translator](https://github.com/seb5594/hass-google_translator-integration) oder beide und richte dort ein Konto ein. Google Translator bietet ein Web-Backend und ein Google-Cloud-Backend. DeepL unterstützt API-Schlüssel und OAuth.
 2. Suche in HACS (Home Assistant 2026.10 und älter) oder unter **Einstellungen → Marketplace** (2026.11 und neuer) nach **Custom Integration Translator**, lade die Integration herunter und starte Home Assistant neu. Findet die Suche sie nicht, füge `https://github.com/seb5594/hass-custom_integrations_translator-integration` am selben Ort zuerst als benutzerdefiniertes Repository hinzu (Kategorie **Integration**). Für die manuelle Installation kopiere `custom_components/custom_integration_translator` in den gleichnamigen Pfad unter deinem Home-Assistant-Konfigurationsordner und starte neu.
-3. Mit eingerichtetem **DeepL Translator ab 1.0.0b4** erscheint nach der HACS-/Marketplace-Installation oder einem Neustart unter **Einstellungen → Geräte & Dienste** eine **Entdeckt**-Kachel. Bestätige die Einrichtung und wähle dein DeepL-Konto. Alternativ öffne **Integration hinzufügen → Custom Integration Translator**. Du kannst den Vorschlag mit Home Assistants **Ignorieren** dauerhaft ausblenden. Mit älteren DeepL-Versionen ist die manuelle Einrichtung weiterhin möglich. Die Kachel erscheint in der Integrationsübersicht; das zugehörige Gerät wird erst nach der Einrichtung angelegt.
+3. Mit eingerichtetem **DeepL Translator ab 1.0.0b4** oder **Google Translator** erscheint nach der HACS-/Marketplace-Installation oder einem Neustart unter **Einstellungen → Geräte & Dienste** eine **Entdeckt**-Kachel. Bestätige die Einrichtung und wähle je Dienst ein Konto. Alternativ öffne **Integration hinzufügen → Custom Integration Translator**. Du kannst den Vorschlag mit Home Assistants **Ignorieren** dauerhaft ausblenden. Mit älteren DeepL-Versionen ist die manuelle Einrichtung weiterhin möglich. Die Kachel erscheint in der Integrationsübersicht; das zugehörige Gerät wird erst nach der Einrichtung angelegt.
 4. Drücke als Administrator auf dem zugehörigen Gerät **Übersetzungen öffnen**. Alternativ verwende die Aktion `custom_integration_translator.open_workspace` oder öffne in deiner Instanz `/custom-integration-translator`. Aufrufe aus Automationen ohne Benutzerkontext erzeugen eine Benachrichtigung mit Link. Nach der ersten Einrichtung hilft bei einem bereits geöffneten Browser ein Neuladen.
 
 ## Eine Übersetzung ergänzen
 
-Die Ansicht wählt die Systemsprache vor. Angeboten werden Sprachschlüssel, die sowohl Home Assistant als auch dein DeepL-Konto unterstützen. Unter **Konfigurieren → Sprache und Sidebar** kannst du die Voreinstellung ändern, geschützte Begriffe hinterlegen und die optionale Sidebar-Verknüpfung einschalten.
+Die Ansicht wählt die Systemsprache vor. Angeboten werden Sprachschlüssel, die sowohl Home Assistant als auch der gewählte Dienst unterstützen. Abweichende Schreibweisen von Google werden zugeordnet (zum Beispiel `he` zu `iw`, `zh-Hans` zu `zh-CN`). Unter **Konfigurieren → Sprache und Sidebar** kannst du die Voreinstellung ändern, geschützte Begriffe hinterlegen und die optionale Sidebar-Verknüpfung einschalten.
 
 **Beispiel:** Eine Integration enthält zwölf englische Texte, aber nur neun deutsche. Öffne ihren Eintrag. Die drei fehlenden Texte sind bereits markiert. Prüfe die Vorschau, trage bei Bedarf Produktnamen ein und drücke **Auswahl übersetzen (3)**. Der Translator ergänzt die ausgewählten Schlüssel in `translations/de.json`. Andere Texte und zusätzliche Schlüssel der Zielversion bleiben erhalten.
 
 - Die Liste sortiert Integrationen mit fehlenden Texten nach vorn und innerhalb jeder Gruppe alphabetisch. Schalte **Verstecke übersetzte Integrationen** aus, um vollständige Übersetzungen zu prüfen oder zurückzusetzen.
 - Als Quelle dient bevorzugt `translations/en.json`, danach `strings.json` oder eine andere vorhandene Sprachdatei. Die Ansicht zeigt die verwendete Quellsprache. Selbst erzeugte Fassungen werden bei der Quellwahl übersprungen.
-- Mit **Alle auswählen** kannst du eine vollständige Neuübersetzung anstoßen. **Auswahl aufheben** ermöglicht die Auswahl einzelner Texte. Bereits von DeepL bearbeitete Phrasen sind gekennzeichnet.
-- Gib geschützte Wörter oder Produktnamen mit exakter Schreibweise ein, eines pro Zeile. Marken und Platzhalter wie `{name}` werden vor dem Versand maskiert. Verändert DeepL eine Markierung, wird der gesamte Auftrag verworfen. Für die gesendeten Texte gelten die Konditionen deines DeepL-Kontos.
+- Mit **Alle auswählen** kannst du eine vollständige Neuübersetzung anstoßen. **Auswahl aufheben** ermöglicht die Auswahl einzelner Texte. Bereits maschinell übersetzte Phrasen sind gekennzeichnet.
+- Gib geschützte Wörter oder Produktnamen mit exakter Schreibweise ein, eines pro Zeile. Marken und Platzhalter wie `{name}` werden vor dem Versand maskiert. Verändert der Dienst eine Markierung, wird der gesamte Auftrag verworfen. Für die gesendeten Texte gelten die Konditionen des gewählten Dienstes.
 - Starte Home Assistant nach dem Speichern neu und lade den Browser neu, damit auch bereits zwischengespeicherte Übersetzungen aktualisiert werden.
+
+## Übersetzungsdienste
+
+DeepL und Google Translator lassen sich nebeneinander nutzen:
+
+- **Automatisch gefunden.** Ein Dienst, der nach dem Translator eingerichtet wird, erscheint im Arbeitsbereich, ohne dass hier etwas geändert werden muss. Bei mehreren Konten eines Dienstes wählst du eines unter **Konfigurieren → Übersetzungsdienste**.
+- **Pro Übersetzung wählbar.** Sind mehrere Dienste eingerichtet, gibt es im Arbeitsbereich eine Auswahl **Übersetzungsdienst**, und die Sprachliste folgt dem gewählten Dienst. Der bevorzugte Dienst, ebenfalls unter **Konfigurieren → Übersetzungsdienste**, ist vorausgewählt.
+- **Optionale Übernahme.** *Bei Fehlern einen anderen Dienst übernehmen lassen* lässt den nächsten Dienst übersetzen, wenn der gewählte es nicht kann, etwa weil sein Kontingent aufgebraucht ist oder er die Sprache nicht anbietet. Standardmäßig ist sie aus, damit Texte nur an einen Dienst gehen, den du gewählt hast; die Meldung nennt den Dienst, der übersetzt hat.
+
+Die Dienste selbst lassen sich in der `configuration.yaml` einrichten (`deepl_translator:` und `google_translator:`), siehe deren Projekte.
 
 ## Neue Integrationen und Reparaturen
 

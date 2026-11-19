@@ -131,3 +131,80 @@ test('quota forecast distinguishes finite, unlimited and unavailable accounts', 
   c.updateUsage();
   assert.match(c.root.querySelector('#usage').textContent, /Remaining usage is unknown/);
 });
+
+function withServices(component, fallback = false) {
+  component.settings = {
+    languages: ['de'], recoverable: [], fallback, provider: 'deepl_translator',
+    providers: [
+      {key: 'deepl_translator', name: 'DeepL', languages: ['de', 'fr'], error: null},
+      {key: 'google_translator', name: 'Google', languages: ['de', 'pt'], error: null},
+    ],
+  };
+  component.provider = 'deepl_translator';
+  return component;
+}
+test('the service picker appears only when several services are set up', () => {
+  const c = workspace();
+  assert.equal(c.providerPicker(), '');
+  withServices(c);
+  assert.match(c.providerPicker(), /id="provider"/);
+  assert.match(c.providerPicker(), /<option value="google_translator">Google/);
+  assert.match(c.providerPicker(), /<option value="deepl_translator" selected>DeepL/);
+  c.settings.providers[1].error = 'Google is unavailable';
+  assert.match(c.providerPicker(), /disabled>Google – Google is unavailable/);
+});
+test('languages follow the chosen service, or all of them when another may take over', () => {
+  const c = withServices(workspace());
+  assert.deepEqual(Array.from(c.supportedLanguages()), ['de', 'fr']);
+  c.provider = 'google_translator';
+  assert.deepEqual(Array.from(c.supportedLanguages()), ['de', 'pt']);
+  c.settings.fallback = true;
+  assert.deepEqual(Array.from(c.supportedLanguages()).sort(), ['de', 'fr', 'pt']);
+  c.settings.providers = [];
+  assert.deepEqual(Array.from(c.supportedLanguages()), ['de']);
+});
+test('choosing a service that lacks the language asks for another language', () => {
+  const c = withServices(workspace());
+  c.lang = 'fr';
+  c.render = () => {};
+  c.loadUsage = () => {};
+  c.change({target:{id:'provider', value:'google_translator'}});
+  assert.equal(c.provider, 'google_translator');
+  assert.equal(c.lang, '');
+  assert.equal(c.item, null);
+  c.lang = 'de';
+  c.item = {rows:[], domain:'example'};
+  c.queueEstimate = () => {};
+  let reloaded = false;
+  c.loadUsage = () => { reloaded = true; };
+  c.change({target:{id:'provider', value:'deepl_translator'}});
+  assert.equal(c.lang, 'de');
+  assert.ok(reloaded, 'the balance of the newly chosen service is requested');
+});
+test('the translation request names the chosen service and the result says who translated', async () => {
+  const c = withServices(workspace(250));
+  c.provider = 'google_translator';
+  c.selected = new Set([1]);
+  let request;
+  c.call = async (action, data) => { request = {action, data}; return {provider:'google_translator', provider_name:'Google'}; };
+  c.detail = async () => {};
+  c.run = work => work();
+  await c.click({target:{closest() { return {id:'translate', dataset:{}}; }}});
+  assert.equal(request.data.provider, 'google_translator');
+  assert.match(c.message, /Saved 1 phrases \(Google\)/);
+});
+test('the balance is labelled with its service and says when it was counted by the integration', () => {
+  const c = withServices(workspace());
+  c.estimate = {selected_phrases:1,unique_phrases:1,words:1,characters:20};
+  c.quota = {available:true,estimated:true,provider_name:'Google',character_count:100,character_limit:500,characters_remaining:400};
+  c.updateUsage();
+  const text = c.root.querySelector('#usage').textContent;
+  assert.match(text, /Google budget: 400 of 500 characters remaining this month \(counted by the integration\)/);
+  assert.match(text, /after this selection: 380/);
+  c.quota = {available:true,estimated:true,provider_name:'Google',unlimited:true,character_count:7};
+  c.updateUsage();
+  assert.match(c.root.querySelector('#usage').textContent, /Google: 7 characters counted this month, no monthly limit set/);
+  c.quota = {available:true,provider_name:'DeepL',character_count:900,character_limit:1000,characters_remaining:100};
+  c.updateUsage();
+  assert.match(c.root.querySelector('#usage').textContent, /DeepL account: 100 of 1000 characters remaining/);
+});

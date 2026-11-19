@@ -3,24 +3,26 @@
   "config": {
     "step": {
       "user": {
-        "title": "DeepL-Konto auswählen",
-        "description": "Über dieses eingerichtete Konto werden die ausgewählten Phrasen übersetzt.",
+        "title": "Übersetzungsdienste auswählen",
+        "description": "Die ausgewählten Phrasen werden über diese Konten übersetzt. Bei mehreren Diensten legst du hier den bevorzugten fest und kannst später pro Übersetzung wechseln.",
         "data": {
-          "deepl_entry": "DeepL-Konto"
+          "deepl_entry": "DeepL-Konto",
+          "google_entry": "Google-Translator-Konto",
+          "default_provider": "Bevorzugter Dienst"
         }
       },
       "discovery_confirm": {
         "title": "Custom Integration Translator",
-        "description": "Übersetze fehlende Texte deiner Custom Integrations mit deinem eingerichteten DeepL-Konto. Vergleiche Quelle und Übersetzung, wähle einzelne Phrasen und schütze Produktnamen vor dem Übersetzen. Möchtest du den Translator jetzt einrichten?"
+        "description": "Übersetze fehlende Texte deiner Custom Integrations mit DeepL oder Google Übersetzer, je nachdem, was du eingerichtet hast. Vergleiche Quelle und Übersetzung, wähle einzelne Phrasen und schütze Produktnamen vor dem Übersetzen. Möchtest du den Translator jetzt einrichten?"
       }
     },
     "abort": {
-      "deepl_required": "Richte zuerst [DeepL Translator]({deepl_url}) ein und starte die Einrichtung erneut.",
-      "already_configured": "Der Translator ist bereits eingerichtet."
+      "already_configured": "Der Translator ist bereits eingerichtet.",
+      "provider_required": "Richte zuerst einen Übersetzungsdienst ein ({providers}) und starte die Einrichtung erneut."
     },
     "flow_title": "{name}",
     "error": {
-      "deepl_required": "Aktuell ist kein DeepL-Konto verfügbar. Richte DeepL Translator ein oder aktiviere ihn und versuche es erneut."
+      "provider_required": "Aktuell ist kein Übersetzungsdienst verfügbar. Richte DeepL Translator oder Google Translator ein oder aktiviere ihn und versuche es erneut."
     }
   },
   "options": {
@@ -31,7 +33,8 @@
           "preferences": "Sprache und Sidebar",
           "deactivate": "Translator deaktivieren …",
           "automation": "Automatische Prüfungen",
-          "notifications": "Hinweise"
+          "notifications": "Hinweise",
+          "providers": "Übersetzungsdienste"
         }
       },
       "preferences": {
@@ -74,11 +77,21 @@
           "repair_missing": "Reparatureinträge für fehlende Phrasen erstellen",
           "overview_sensor": "Übersichtssensor aktivieren"
         }
+      },
+      "providers": {
+        "title": "Übersetzungsdienste",
+        "description": "Wähle das Konto je Dienst. Der bevorzugte Dienst wird genutzt, sofern du beim Übersetzen keinen anderen wählst. Ist die Übernahme aktiv, übersetzt ein anderer Dienst, wenn der gewählte es nicht kann, etwa weil sein Kontingent aufgebraucht ist oder er die Sprache nicht anbietet.",
+        "data": {
+          "deepl_entry": "DeepL-Konto",
+          "google_entry": "Google-Translator-Konto",
+          "default_provider": "Bevorzugter Dienst",
+          "provider_fallback": "Bei Fehlern einen anderen Dienst übernehmen lassen"
+        }
       }
     },
     "abort": {
       "deactivated": "Der Translator wird deaktiviert.",
-      "provider_unavailable": "Das konfigurierte DeepL-Konto ist nicht erreichbar."
+      "provider_unavailable": "Richte [DeepL Translator](https://github.com/seb5594/hass-deepl_translator-integration) oder [Google Translator](https://github.com/seb5594/hass-google_translator-integration) ein oder aktiviere ihn und versuche es erneut."
     },
     "error": {
       "restore_failed": "Die Bereinigung wurde angehalten. Prüfe die betroffene Datei in der Übersetzungsansicht."
