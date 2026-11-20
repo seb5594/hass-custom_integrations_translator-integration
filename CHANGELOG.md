@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.20
+
+- Publish the first build of the day without a build suffix. Later builds use .1, .2, and so on.
+
 ## 2026.11.19.1
 
 - Use Google Translator next to DeepL Translator. Either one is enough to set the translator up; services installed later show up on their own. With both, the workspace has a **Translation service** selector whose language list follows the chosen service, and the result names the service that translated.
